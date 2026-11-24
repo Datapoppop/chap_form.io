@@ -1793,6 +1793,43 @@
   <!-- =========================================================================
        APPLICATION JAVASCRIPT
        ========================================================================= -->
+
+  <!-- Firebase SDK (Compat: keeps the existing application JavaScript unchanged) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics-compat.js"></script>
+  <script>
+    // Firebase connection: CHAP FORM
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNb8cbn786rPybkEawjzmWEs5ZFxpYgdI",
+      authDomain: "chap-form.firebaseapp.com",
+      projectId: "chap-form",
+      storageBucket: "chap-form.firebasestorage.app",
+      messagingSenderId: "474072578948",
+      appId: "1:474072578948:web:d0f029ca88d66aa9327bd1",
+      measurementId: "G-Q9N2EK1Z3P"
+    };
+
+    let chapFirebaseReady = false;
+    let chapFirestore = null;
+    let chapStorage = null;
+
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      chapFirestore = firebase.firestore();
+      chapStorage = firebase.storage();
+      try {
+        if (firebase.analytics.isSupported()) firebase.analytics();
+      } catch (analyticsError) {
+        console.info('Firebase Analytics is not available in this browser.');
+      }
+      chapFirebaseReady = true;
+    } catch (firebaseError) {
+      console.error('Firebase initialization failed:', firebaseError);
+    }
+  </script>
+
   <script>
     // =========================================================================
     // 1. GLOBAL STATE & STORAGE KEYS
@@ -1932,6 +1969,7 @@
     // =========================================================================
     // 3. PERSISTENT STORAGE & SEED DATA
     // =========================================================================
+    // Save locally first (existing behavior), then synchronize the same data to Firebase.
     function saveStateToStorage() {
       try {
         localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(APP_STATE.events));
@@ -1941,6 +1979,128 @@
         localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(APP_STATE.theme));
       } catch (e) {
         console.warn('Storage save warning:', e);
+      }
+      scheduleFirebaseSync();
+    }
+
+    let firebaseSyncTimer = null;
+    let firebaseSyncRunning = false;
+    let firebaseSyncQueued = false;
+
+    function setFirebaseConnectionStatus(connected, message) {
+      const badge = document.getElementById('db-status-badge');
+      const dot = document.getElementById('db-status-dot');
+      const text = document.getElementById('db-status-text');
+      if (!badge || !dot || !text) return;
+      badge.classList.remove('hidden');
+      badge.classList.add('sm:inline-flex');
+      dot.className = 'w-2 h-2 rounded-full ' + (connected ? 'bg-emerald-400' : 'bg-rose-400');
+      text.textContent = message || (connected ? 'Firebase เชื่อมต่อแล้ว' : 'Firebase ยังไม่เชื่อมต่อ');
+    }
+
+    async function firebasePrepareValue(value, path) {
+      if (typeof value === 'string' && /^data:(image\/|application\/pdf)[^;]*;base64,/i.test(value)) {
+        if (!chapStorage) throw new Error('Firebase Storage is not initialized');
+        const digest = await crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(value)
+        );
+        const hash = Array.from(new Uint8Array(digest))
+          .map(byte => byte.toString(16).padStart(2, '0')).join('');
+        const mime = (value.match(/^data:([^;]+)/i) || [])[1] || 'application/octet-stream';
+        const extension = mime === 'application/pdf' ? 'pdf' : (mime.split('/')[1] || 'bin').replace('jpeg', 'jpg');
+        const storagePath = 'chap-form-assets/' + hash + '.' + extension;
+        const fileRef = chapStorage.ref(storagePath);
+        try {
+          return await fileRef.getDownloadURL();
+        } catch (_) {
+          const blob = await (await fetch(value)).blob();
+          await fileRef.put(blob, { contentType: mime });
+          return await fileRef.getDownloadURL();
+        }
+      }
+      if (Array.isArray(value)) {
+        return Promise.all(value.map((item, index) => firebasePrepareValue(item, path + '/' + index)));
+      }
+      if (value && typeof value === 'object') {
+        const output = {};
+        for (const [key, item] of Object.entries(value)) {
+          output[key] = await firebasePrepareValue(item, path + '/' + key);
+        }
+        return output;
+      }
+      return value;
+    }
+
+    async function syncStateToFirebase() {
+      if (!chapFirebaseReady || !chapFirestore) {
+        setFirebaseConnectionStatus(false, 'ยังไม่ได้เชื่อมต่อ Firebase');
+        return;
+      }
+      if (firebaseSyncRunning) {
+        firebaseSyncQueued = true;
+        return;
+      }
+      firebaseSyncRunning = true;
+      try {
+        const stateForCloud = {
+          events: APP_STATE.events,
+          departments: APP_STATE.departments,
+          registrations: APP_STATE.registrations,
+          auditLogs: APP_STATE.auditLogs,
+          theme: APP_STATE.theme,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        const cloudSafeState = await firebasePrepareValue(stateForCloud, 'root');
+        await chapFirestore.collection('chap_form').doc('app_state').set(cloudSafeState, { merge: false });
+        setFirebaseConnectionStatus(true, 'Firebase ซิงก์แล้ว');
+      } catch (error) {
+        console.error('Firebase sync error:', error);
+        setFirebaseConnectionStatus(false, 'ซิงก์ Firebase ไม่สำเร็จ');
+      } finally {
+        firebaseSyncRunning = false;
+        if (firebaseSyncQueued) {
+          firebaseSyncQueued = false;
+          scheduleFirebaseSync();
+        }
+      }
+    }
+
+    function scheduleFirebaseSync() {
+      if (!chapFirebaseReady) return;
+      clearTimeout(firebaseSyncTimer);
+      firebaseSyncTimer = setTimeout(syncStateToFirebase, 900);
+    }
+
+    async function loadStateFromFirebase() {
+      if (!chapFirebaseReady || !chapFirestore) return false;
+      try {
+        setFirebaseConnectionStatus(false, 'กำลังโหลด Firebase...');
+        const snapshot = await chapFirestore.collection('chap_form').doc('app_state').get();
+        if (!snapshot.exists) {
+          setFirebaseConnectionStatus(true, 'Firebase พร้อมใช้งาน (เริ่มต้นข้อมูล)');
+          return false;
+        }
+        const cloud = snapshot.data() || {};
+        if (Array.isArray(cloud.departments)) APP_STATE.departments = cloud.departments;
+        if (Array.isArray(cloud.events)) APP_STATE.events = cloud.events;
+        if (Array.isArray(cloud.registrations)) APP_STATE.registrations = cloud.registrations;
+        if (Array.isArray(cloud.auditLogs)) APP_STATE.auditLogs = cloud.auditLogs;
+        if (cloud.theme && typeof cloud.theme === 'object') {
+          APP_STATE.theme = { ...APP_STATE.theme, ...cloud.theme };
+        }
+        // Keep the browser's local cache aligned with the latest cloud copy.
+        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(APP_STATE.events));
+        localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(APP_STATE.departments));
+        localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(APP_STATE.registrations));
+        localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(APP_STATE.auditLogs));
+        localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(APP_STATE.theme));
+        setFirebaseConnectionStatus(true, 'โหลดข้อมูลจาก Firebase แล้ว');
+        return true;
+      } catch (error) {
+        console.error('Firebase load error:', error);
+        setFirebaseConnectionStatus(false, 'โหลด Firebase ไม่สำเร็จ');
+        return false;
       }
     }
 
@@ -2097,7 +2257,7 @@
         if (Array.isArray(savedLogs)) {
           APP_STATE.auditLogs = savedLogs;
         }
-        saveStateToStorage();
+        // Local data remains available as an offline fallback.
       } catch (err) {
         console.error('Error loading state:', err);
       }
@@ -4496,8 +4656,14 @@
       if (el) el.classList.add('hidden');
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       loadStateFromStorage();
+      const loadedFromFirebase = await loadStateFromFirebase();
+      if (!loadedFromFirebase) {
+        // First launch: seed Firebase with the existing default/local data.
+        if (chapFirebaseReady) await syncStateToFirebase();
+        else setFirebaseConnectionStatus(false, 'ยังไม่ได้เชื่อมต่อ Firebase');
+      }
       applyThemeVariables(APP_STATE.theme);
       renderUserEventsGrid();
     });
