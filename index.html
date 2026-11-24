@@ -354,14 +354,6 @@
             <i class="fa-solid fa-shield-halved"></i>
             <span id="nav-admin-label">ผู้ดูแลระบบ</span>
           </button>
-
-          <!-- Connection Badge -->
-          <span id="db-status-badge"
-            class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-black/20 text-white/90 border border-white/15 ml-1"
-            title="สถานะการจัดเก็บข้อมูล">
-            <span class="w-2 h-2 rounded-full bg-emerald-400" id="db-status-dot"></span>
-            <span id="db-status-text">พร้อมใช้งาน</span>
-          </span>
         </nav>
       </div>
     </div>
@@ -686,15 +678,7 @@
             <input type="password" id="admin-password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน"
               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm theme-focus" />
           </div>
-
-          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
-            <span>บัญชีทดสอบสำหรับแอดมิน:</span>
-            <button type="button" onclick="fillDemoAdminCredentials()" class="font-bold theme-text-primary hover:underline">
-              คลิกเติมอัตโนมัติ (admin / PDPA2026)
-            </button>
-          </div>
-
-          <button type="submit" class="w-full py-2.5 rounded-xl theme-btn-primary text-sm font-bold shadow-sm">
+<button type="submit" class="w-full py-2.5 rounded-xl theme-btn-primary text-sm font-bold shadow-sm">
             <i class="fa-solid fa-right-to-bracket mr-1.5"></i> เข้าสู่ระบบจัดการ
           </button>
         </form>
@@ -3047,11 +3031,6 @@
     // =========================================================================
     // 7. ADMIN AUTHENTICATION & SILENT IDLE AUTO-LOGOUT
     // =========================================================================
-    function fillDemoAdminCredentials() {
-      document.getElementById('admin-username').value = 'admin';
-      document.getElementById('admin-password').value = 'PDPA2026';
-    }
-
     function handleAdminLogin(event) {
       event.preventDefault();
       const user = document.getElementById('admin-username').value.trim();
