@@ -343,11 +343,6 @@
 
         <!-- Main View Switcher -->
         <nav class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          <span id="db-status-badge" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-black/20 text-[11px] font-medium text-white/95">
-            <span id="db-status-dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
-            <span id="db-status-text">กำลังเชื่อมต่อ...</span>
-          </span>
-
           <button type="button" id="nav-btn-register" onclick="switchView('register')"
             class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 bg-white/20 text-white hover:bg-white/30">
             <i class="fa-solid fa-file-signature"></i>
@@ -1873,7 +1868,9 @@
       cameraStream: null,
       cameraFacingMode: 'user',
       idleTimer: null,
-      idleListenersBound: false
+      idleListenersBound: false,
+      isApplyingRemoteSnapshot: false,
+      realtimeUnsubscribe: null
     };
 
     // =========================================================================
@@ -2000,9 +1997,9 @@
     }
 
     // =========================================================================
-    // 3. PERSISTENT STORAGE & SEED DATA
+    // 3. PERSISTENT STORAGE, REALTIME SYNC & SEED DATA
     // =========================================================================
-    function saveStateToStorage() {
+    function writeLocalCacheOnly() {
       try {
         localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(APP_STATE.events));
         localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(APP_STATE.departments));
@@ -2012,27 +2009,75 @@
       } catch (e) {
         console.warn('Storage save warning:', e);
       }
-      scheduleFirebaseSync();
+    }
+
+    function refreshActiveViewsAfterDataUpdate() {
+      applyThemeVariables(APP_STATE.theme);
+      renderUserEventsGrid();
+
+      if (APP_STATE.selectedEventId) {
+        const stillExists = APP_STATE.events.some(e => e.id === APP_STATE.selectedEventId && e.status === 'open');
+        if (stillExists) {
+          const ev = APP_STATE.events.find(e => e.id === APP_STATE.selectedEventId);
+          const posSelect = document.getElementById('reg-position');
+          const prevPos = posSelect ? posSelect.value : '';
+          const dept = getDepartmentById(ev.departmentId);
+          document.getElementById('selected-event-title').textContent = ev.title;
+          document.getElementById('selected-event-meta').textContent =
+            `${formatDateRange(ev.startDate, ev.endDate)} • สถานที่: ${ev.location}`;
+          document.getElementById('selected-event-coordinator').textContent = dept
+            ? `หน่วยงานรับผิดชอบ: ${dept.name} | ผู้ประสานงานหลัก: ${dept.coordinator || '-'} (${dept.contact || '-'})`
+            : '';
+          if (posSelect) {
+            posSelect.innerHTML = `<option value="">-- กรุณาเลือกตำแหน่งที่ต้องการสมัคร --</option>` +
+              (ev.positions || []).map(p => {
+                const approved = getApprovedCountForPosition(ev.id, p.id);
+                const rem = Math.max(0, (Number(p.quota) || 0) - approved);
+                return `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} (ว่าง ${rem}/${p.quota} ตำแหน่ง)</option>`;
+              }).join('');
+            if (prevPos && Array.from(posSelect.options).some(o => o.value === prevPos)) {
+              posSelect.value = prevPos;
+            }
+          }
+          applyEventFieldRequirementsToForm(ev);
+        } else {
+          clearSelectedEvent();
+        }
+      }
+
+      const statusQ = document.getElementById('status-search-input')?.value.trim();
+      if (statusQ && !document.getElementById('view-status')?.classList.contains('hidden')) {
+        renderStatusSearchResults(statusQ);
+      }
+
+      if (APP_STATE.isAdminAuthenticated) {
+        populateFilterEventSelect();
+        renderAdminRegistrationsTable();
+        populateEventDepartmentDropdown();
+        renderAdminEventsList();
+        renderAdminDepartmentsList();
+        populateReportEventSelect();
+        renderReportPreview();
+        populateErasureEventSelect();
+        renderErasureSearchList();
+        renderAuditLogs();
+      }
+    }
+
+    function saveStateToStorage() {
+      writeLocalCacheOnly();
+      if (!APP_STATE.isApplyingRemoteSnapshot) {
+        scheduleFirebaseSync();
+      }
     }
 
     let firebaseSyncTimer = null;
     let firebaseSyncRunning = false;
     let firebaseSyncQueued = false;
 
-    function setFirebaseConnectionStatus(connected, message) {
-      const badge = document.getElementById('db-status-badge');
-      const dot = document.getElementById('db-status-dot');
-      const text = document.getElementById('db-status-text');
-      if (!badge || !dot || !text) return;
-      badge.classList.remove('hidden');
-      badge.classList.add('sm:inline-flex');
-      dot.className = 'w-2 h-2 rounded-full ' + (connected ? 'bg-emerald-400' : 'bg-rose-400');
-      text.textContent = message || (connected ? 'Firebase เชื่อมต่อแล้ว' : 'Firebase ยังไม่เชื่อมต่อ');
-    }
-
     async function firebasePrepareValue(value, path) {
       if (typeof value === 'string' && /^data:(image\/|application\/pdf)[^;]*;base64,/i.test(value)) {
-        if (!chapStorage) throw new Error('Firebase Storage is not initialized');
+        if (!chapStorage) return value;
         const parsed = dataUrlToBlob(value);
         if (!parsed) return value;
         const digest = await crypto.subtle.digest(
@@ -2067,10 +2112,7 @@
     }
 
     async function syncStateToFirebase() {
-      if (!chapFirebaseReady || !chapFirestore) {
-        setFirebaseConnectionStatus(false, 'ยังไม่ได้เชื่อมต่อ Firebase');
-        return;
-      }
+      if (!chapFirebaseReady || !chapFirestore) return;
       if (firebaseSyncRunning) {
         firebaseSyncQueued = true;
         return;
@@ -2086,11 +2128,15 @@
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         const cloudSafeState = await firebasePrepareValue(stateForCloud, 'root');
+        APP_STATE.events = cloudSafeState.events || APP_STATE.events;
+        APP_STATE.departments = cloudSafeState.departments || APP_STATE.departments;
+        APP_STATE.registrations = cloudSafeState.registrations || APP_STATE.registrations;
+        APP_STATE.auditLogs = cloudSafeState.auditLogs || APP_STATE.auditLogs;
+        writeLocalCacheOnly();
+
         await chapFirestore.collection('chap_form').doc('app_state').set(cloudSafeState, { merge: false });
-        setFirebaseConnectionStatus(true, 'Firebase ซิงก์แล้ว');
       } catch (error) {
         console.error('Firebase sync error:', error);
-        setFirebaseConnectionStatus(false, 'ซิงก์ Firebase ไม่สำเร็จ');
       } finally {
         firebaseSyncRunning = false;
         if (firebaseSyncQueued) {
@@ -2103,36 +2149,60 @@
     function scheduleFirebaseSync() {
       if (!chapFirebaseReady) return;
       clearTimeout(firebaseSyncTimer);
-      firebaseSyncTimer = setTimeout(syncStateToFirebase, 900);
+      firebaseSyncTimer = setTimeout(syncStateToFirebase, 450);
     }
 
-    async function loadStateFromFirebase() {
-      if (!chapFirebaseReady || !chapFirestore) return false;
+    function applyCloudDocumentData(cloud) {
+      if (!cloud || typeof cloud !== 'object') return;
+      APP_STATE.isApplyingRemoteSnapshot = true;
       try {
-        setFirebaseConnectionStatus(false, 'กำลังโหลด Firebase...');
-        const snapshot = await chapFirestore.collection('chap_form').doc('app_state').get();
-        if (!snapshot.exists) {
-          setFirebaseConnectionStatus(true, 'Firebase พร้อมใช้งาน (เริ่มต้นข้อมูล)');
-          return false;
-        }
-        const cloud = snapshot.data() || {};
         if (Array.isArray(cloud.departments)) APP_STATE.departments = cloud.departments;
-        if (Array.isArray(cloud.events)) APP_STATE.events = cloud.events;
+        if (Array.isArray(cloud.events)) {
+          APP_STATE.events = cloud.events.map(ev => ({
+            ...ev,
+            fieldReqs: { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) },
+            customFields: Array.isArray(ev.customFields) ? ev.customFields : [],
+            positions: Array.isArray(ev.positions) ? ev.positions : []
+          }));
+        }
         if (Array.isArray(cloud.registrations)) APP_STATE.registrations = cloud.registrations;
         if (Array.isArray(cloud.auditLogs)) APP_STATE.auditLogs = cloud.auditLogs;
         if (cloud.theme && typeof cloud.theme === 'object') {
           APP_STATE.theme = { ...APP_STATE.theme, ...cloud.theme };
         }
-        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(APP_STATE.events));
-        localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(APP_STATE.departments));
-        localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(APP_STATE.registrations));
-        localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(APP_STATE.auditLogs));
-        localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(APP_STATE.theme));
-        setFirebaseConnectionStatus(true, 'โหลดข้อมูลจาก Firebase แล้ว');
+        writeLocalCacheOnly();
+        refreshActiveViewsAfterDataUpdate();
+      } finally {
+        APP_STATE.isApplyingRemoteSnapshot = false;
+      }
+    }
+
+    function startRealtimeFirebaseSync() {
+      if (!chapFirebaseReady || !chapFirestore) return;
+      if (typeof APP_STATE.realtimeUnsubscribe === 'function') {
+        APP_STATE.realtimeUnsubscribe();
+      }
+      APP_STATE.realtimeUnsubscribe = chapFirestore.collection('chap_form').doc('app_state')
+        .onSnapshot(
+          (snapshot) => {
+            if (!snapshot.exists || snapshot.metadata.hasPendingWrites) return;
+            applyCloudDocumentData(snapshot.data() || {});
+          },
+          (error) => {
+            console.error('Realtime listener error:', error);
+          }
+        );
+    }
+
+    async function loadStateFromFirebase() {
+      if (!chapFirebaseReady || !chapFirestore) return false;
+      try {
+        const snapshot = await chapFirestore.collection('chap_form').doc('app_state').get();
+        if (!snapshot.exists) return false;
+        applyCloudDocumentData(snapshot.data() || {});
         return true;
       } catch (error) {
         console.error('Firebase load error:', error);
-        setFirebaseConnectionStatus(false, 'โหลด Firebase ไม่สำเร็จ');
         return false;
       }
     }
@@ -4063,6 +4133,7 @@
       resetDepartmentForm();
       renderAdminDepartmentsList();
       populateEventDepartmentDropdown();
+      renderUserEventsGrid();
     }
 
     window.editDepartmentById = function (deptId) {
@@ -4103,6 +4174,7 @@
       logAudit('DELETE_DEPARTMENT', `ลบหน่วยงาน "${removed.name}"`);
       renderAdminDepartmentsList();
       populateEventDepartmentDropdown();
+      renderUserEventsGrid();
       showToast('ลบหน่วยงานเรียบร้อยแล้ว', 'info');
     };
 
@@ -4717,21 +4789,20 @@
 
     window.addEventListener('beforeunload', () => {
       stopLiveCamera();
+      if (typeof APP_STATE.realtimeUnsubscribe === 'function') {
+        APP_STATE.realtimeUnsubscribe();
+      }
     });
 
     window.addEventListener('DOMContentLoaded', async () => {
       loadStateFromStorage();
-      applyThemeVariables(APP_STATE.theme);
-      renderUserEventsGrid();
+      refreshActiveViewsAfterDataUpdate();
 
       const loadedFromFirebase = await loadStateFromFirebase();
-      if (!loadedFromFirebase) {
-        if (chapFirebaseReady) await syncStateToFirebase();
-        else setFirebaseConnectionStatus(false, 'ยังไม่ได้เชื่อมต่อ Firebase');
-      } else {
-        applyThemeVariables(APP_STATE.theme);
-        renderUserEventsGrid();
+      if (!loadedFromFirebase && chapFirebaseReady) {
+        await syncStateToFirebase();
       }
+      startRealtimeFirebaseSync();
     });
   </script>
 </body>
