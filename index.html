@@ -45,6 +45,8 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(window.location.href).then(() => {
           alert('คัดลอกลิงก์เรียบร้อยแล้ว กรุณานำไปวางใน Safari หรือ Chrome');
+        }).catch(() => {
+          prompt('คัดลอกลิงก์ด้านล่างเพื่อเปิดในเบราว์เซอร์:', window.location.href);
         });
       } else {
         prompt('คัดลอกลิงก์ด้านล่างเพื่อเปิดในเบราว์เซอร์:', window.location.href);
@@ -116,6 +118,10 @@
     .theme-btn-primary:hover:not(:disabled) {
       background-color: var(--theme-primary-hover);
       filter: brightness(1.06);
+    }
+    .theme-btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .theme-btn-secondary {
@@ -337,6 +343,11 @@
 
         <!-- Main View Switcher -->
         <nav class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <span id="db-status-badge" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-black/20 text-[11px] font-medium text-white/95">
+            <span id="db-status-dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
+            <span id="db-status-text">กำลังเชื่อมต่อ...</span>
+          </span>
+
           <button type="button" id="nav-btn-register" onclick="switchView('register')"
             class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 bg-white/20 text-white hover:bg-white/30">
             <i class="fa-solid fa-file-signature"></i>
@@ -678,7 +689,7 @@
             <input type="password" id="admin-password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน"
               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm theme-focus" />
           </div>
-<button type="submit" class="w-full py-2.5 rounded-xl theme-btn-primary text-sm font-bold shadow-sm">
+          <button type="submit" class="w-full py-2.5 rounded-xl theme-btn-primary text-sm font-bold shadow-sm">
             <i class="fa-solid fa-right-to-bracket mr-1.5"></i> เข้าสู่ระบบจัดการ
           </button>
         </form>
@@ -1338,7 +1349,7 @@
 
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">ยืนยันรหัสผ่านผู้ดูแลระบบก่อนทำลายข้อมูล <span class="text-rose-500">*</span></label>
-                <input type="password" id="erasure-admin-password" placeholder="กรอกรหัสผ่าน Admin (PDPA2026) เพื่อยืนยัน"
+                <input type="password" id="erasure-admin-password" placeholder="กรอกรหัสผ่าน Admin เพื่อยืนยัน"
                   class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm theme-focus" />
               </div>
 
@@ -1778,7 +1789,7 @@
        APPLICATION JAVASCRIPT
        ========================================================================= -->
 
-  <!-- Firebase SDK (Compat: keeps the existing application JavaScript unchanged) -->
+  <!-- Firebase SDK (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
@@ -1804,10 +1815,12 @@
       chapFirestore = firebase.firestore();
       chapStorage = firebase.storage();
       try {
-        if (firebase.analytics.isSupported()) firebase.analytics();
-      } catch (analyticsError) {
-        console.info('Firebase Analytics is not available in this browser.');
-      }
+        if (firebase.analytics && typeof firebase.analytics.isSupported === 'function') {
+          firebase.analytics.isSupported().then(supported => {
+            if (supported) firebase.analytics();
+          }).catch(() => {});
+        }
+      } catch (_) {}
       chapFirebaseReady = true;
     } catch (firebaseError) {
       console.error('Firebase initialization failed:', firebaseError);
@@ -1826,6 +1839,14 @@
       THEME: 'bcc_chaplain_theme_v3'
     };
 
+    const DEFAULT_FIELD_REQS = {
+      department: 'required',
+      phone: 'required',
+      email: 'required',
+      photo: 'required',
+      documents: 'required'
+    };
+
     const APP_STATE = {
       events: [],
       departments: [],
@@ -1842,21 +1863,17 @@
       selectedEventId: null,
       photoDataUrl: '',
       uploadedDocs: [], // { name, type, dataUrl }
+      isSubmittingRegistration: false,
       isAdminAuthenticated: false,
       pdpaMaskingEnabled: true,
       selectedExportFormat: 'pdf', // 'pdf' | 'excel' | 'word'
-      editorFieldReqs: {
-        department: 'required',
-        phone: 'required',
-        email: 'required',
-        photo: 'required',
-        documents: 'required'
-      },
+      editorFieldReqs: { ...DEFAULT_FIELD_REQS },
       editorCustomFields: [], // { id, label, type, required, placeholder, options }
       editorPositions: [],    // { id, name, quota, docPolicy }
       cameraStream: null,
       cameraFacingMode: 'user',
-      idleTimer: null
+      idleTimer: null,
+      idleListenersBound: false
     };
 
     // =========================================================================
@@ -1878,12 +1895,13 @@
 
     function formatThaiDate(dateStr) {
       if (!dateStr) return '-';
-      const parts = dateStr.split('-');
-      if (parts.length !== 3) return dateStr;
+      const parts = String(dateStr).split('-');
+      if (parts.length !== 3) return String(dateStr);
       const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
       const y = parseInt(parts[0], 10) + 543;
       const m = months[parseInt(parts[1], 10) - 1] || parts[1];
       const d = parseInt(parts[2], 10);
+      if (Number.isNaN(y) || Number.isNaN(d)) return String(dateStr);
       return `${d} ${m} ${y}`;
     }
 
@@ -1913,6 +1931,7 @@
 
     function showToast(message, type = 'success') {
       const container = document.getElementById('toast-container');
+      if (!container) return;
       const toast = document.createElement('div');
       const colors = {
         success: 'bg-emerald-800 text-white border-emerald-600',
@@ -1950,10 +1969,39 @@
       if (APP_STATE.isAdminAuthenticated) renderAuditLogs();
     }
 
+    function dataUrlToBlob(dataUrl, fallbackMime = 'application/octet-stream') {
+      const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/i);
+      if (!match) return null;
+      const mime = match[1] || fallbackMime;
+      const base64 = match[2].replace(/\s+/g, '');
+      const binaryStr = atob(base64);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      return { blob: new Blob([bytes], { type: mime }), mime };
+    }
+
+    function drawRoundedRect(ctx, x, y, w, h, r) {
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        return;
+      }
+      const radius = typeof r === 'number' ? r : (Array.isArray(r) ? (r[0] || 0) : 0);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
     // =========================================================================
     // 3. PERSISTENT STORAGE & SEED DATA
     // =========================================================================
-    // Save locally first (existing behavior), then synchronize the same data to Firebase.
     function saveStateToStorage() {
       try {
         localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(APP_STATE.events));
@@ -1985,21 +2033,23 @@
     async function firebasePrepareValue(value, path) {
       if (typeof value === 'string' && /^data:(image\/|application\/pdf)[^;]*;base64,/i.test(value)) {
         if (!chapStorage) throw new Error('Firebase Storage is not initialized');
+        const parsed = dataUrlToBlob(value);
+        if (!parsed) return value;
         const digest = await crypto.subtle.digest(
           'SHA-256',
           new TextEncoder().encode(value)
         );
         const hash = Array.from(new Uint8Array(digest))
           .map(byte => byte.toString(16).padStart(2, '0')).join('');
-        const mime = (value.match(/^data:([^;]+)/i) || [])[1] || 'application/octet-stream';
-        const extension = mime === 'application/pdf' ? 'pdf' : (mime.split('/')[1] || 'bin').replace('jpeg', 'jpg');
+        const extension = parsed.mime === 'application/pdf'
+          ? 'pdf'
+          : (parsed.mime.split('/')[1] || 'bin').replace('jpeg', 'jpg');
         const storagePath = 'chap-form-assets/' + hash + '.' + extension;
         const fileRef = chapStorage.ref(storagePath);
         try {
           return await fileRef.getDownloadURL();
         } catch (_) {
-          const blob = await (await fetch(value)).blob();
-          await fileRef.put(blob, { contentType: mime });
+          await fileRef.put(parsed.blob, { contentType: parsed.mime });
           return await fileRef.getDownloadURL();
         }
       }
@@ -2073,7 +2123,6 @@
         if (cloud.theme && typeof cloud.theme === 'object') {
           APP_STATE.theme = { ...APP_STATE.theme, ...cloud.theme };
         }
-        // Keep the browser's local cache aligned with the latest cloud copy.
         localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(APP_STATE.events));
         localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(APP_STATE.departments));
         localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(APP_STATE.registrations));
@@ -2127,7 +2176,12 @@
         }
 
         if (Array.isArray(savedEvents) && savedEvents.length > 0) {
-          APP_STATE.events = savedEvents;
+          APP_STATE.events = savedEvents.map(ev => ({
+            ...ev,
+            fieldReqs: { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) },
+            customFields: Array.isArray(ev.customFields) ? ev.customFields : [],
+            positions: Array.isArray(ev.positions) ? ev.positions : []
+          }));
         } else {
           APP_STATE.events = [
             {
@@ -2139,13 +2193,7 @@
               endDate: '2026-12-13',
               status: 'open',
               description: 'ตรวจสุขภาพเบื้องต้น มอบยาสามัญ และเยี่ยมเยียนให้กำลังใจผู้ป่วยติดเตียงในชุมชน',
-              fieldReqs: {
-                department: 'required',
-                phone: 'required',
-                email: 'required',
-                photo: 'required',
-                documents: 'required'
-              },
+              fieldReqs: { ...DEFAULT_FIELD_REQS },
               docInstructions: 'กรุณาแนบสำเนาใบอนุญาตประกอบวิชาชีพ หรือบัตรประจำตัวบุคลากร',
               customFields: [
                 { id: 'cf_dob', label: 'วันเกิด', type: 'date', required: true, placeholder: '', options: '' },
@@ -2241,7 +2289,6 @@
         if (Array.isArray(savedLogs)) {
           APP_STATE.auditLogs = savedLogs;
         }
-        // Local data remains available as an offline fallback.
       } catch (err) {
         console.error('Error loading state:', err);
       }
@@ -2251,6 +2298,9 @@
     // 4. VIEW & TAB NAVIGATION
     // =========================================================================
     function switchView(viewName) {
+      if (viewName !== 'register') {
+        stopLiveCamera();
+      }
       ['register', 'status', 'admin'].forEach(v => {
         const el = document.getElementById('view-' + v);
         const btn = document.getElementById('nav-btn-' + v);
@@ -2325,6 +2375,7 @@
     function renderUserEventsGrid() {
       const grid = document.getElementById('user-events-grid');
       const countLabel = document.getElementById('open-events-count');
+      if (!grid || !countLabel) return;
       const openEvents = APP_STATE.events.filter(ev => ev.status === 'open');
       countLabel.textContent = `เปิดรับสมัครทั้งหมด ${openEvents.length} กิจกรรม`;
 
@@ -2393,7 +2444,6 @@
         ? `หน่วยงานรับผิดชอบ: ${dept.name} | ผู้ประสานงานหลัก: ${dept.coordinator || '-'} (${dept.contact || '-'})`
         : '';
 
-      // Populate Positions
       const posSelect = document.getElementById('reg-position');
       posSelect.innerHTML = `<option value="">-- กรุณาเลือกตำแหน่งที่ต้องการสมัคร --</option>` +
         (ev.positions || []).map(p => {
@@ -2402,12 +2452,8 @@
           return `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} (ว่าง ${rem}/${p.quota} ตำแหน่ง)</option>`;
         }).join('');
 
-      // Apply Field Requirements
       applyEventFieldRequirementsToForm(ev);
-
-      // Render Dynamic Custom Fields
       renderUserCustomFields(ev);
-
       wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -2419,9 +2465,7 @@
     }
 
     function applyEventFieldRequirementsToForm(ev) {
-      const reqs = ev.fieldReqs || {
-        department: 'required', phone: 'required', email: 'required', photo: 'required', documents: 'required'
-      };
+      const reqs = { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) };
 
       const toggleStandardField = (wrapId, badgeId, mode) => {
         const wrap = document.getElementById(wrapId);
@@ -2543,6 +2587,10 @@
     async function openLiveCamera() {
       const panel = document.getElementById('live-camera-panel');
       const video = document.getElementById('camera-video');
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+        showToast('เบราว์เซอร์นี้ไม่รองรับการเปิดกล้องโดยตรง กรุณาใช้ปุ่มเลือกรูปจากเครื่อง', 'warning');
+        return;
+      }
       try {
         stopLiveCamera();
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -2553,6 +2601,7 @@
         video.srcObject = stream;
         panel.classList.remove('hidden');
       } catch (err) {
+        stopLiveCamera();
         showToast('ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์กล้อง หรือใช้ปุ่มเลือกรูปจากเครื่อง', 'warning');
       }
     }
@@ -2564,9 +2613,13 @@
 
     function stopLiveCamera() {
       if (APP_STATE.cameraStream) {
-        APP_STATE.cameraStream.getTracks().forEach(t => t.stop());
+        try {
+          APP_STATE.cameraStream.getTracks().forEach(t => t.stop());
+        } catch (_) {}
         APP_STATE.cameraStream = null;
       }
+      const video = document.getElementById('camera-video');
+      if (video) video.srcObject = null;
       const panel = document.getElementById('live-camera-panel');
       if (panel) panel.classList.add('hidden');
     }
@@ -2574,7 +2627,10 @@
     function captureLivePhoto() {
       const video = document.getElementById('camera-video');
       const canvas = document.getElementById('camera-canvas');
-      if (!video || !video.videoWidth) return;
+      if (!video || !video.videoWidth) {
+        showToast('กล้องยังไม่พร้อมถ่ายภาพ กรุณารอสักครู่', 'warning');
+        return;
+      }
 
       const maxDim = 640;
       let w = video.videoWidth;
@@ -2612,9 +2668,13 @@
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
           setPhotoPreview(canvas.toDataURL('image/jpeg', 0.75), `อัปโหลดรูปภาพ: ${file.name}`);
         };
+        img.onerror = function () {
+          showToast('ไม่สามารถอ่านไฟล์รูปภาพได้ กรุณาเลือกไฟล์ใหม่อีกครั้ง', 'error');
+        };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+      event.target.value = '';
     }
 
     function setPhotoPreview(dataUrl, statusText) {
@@ -2635,7 +2695,8 @@
       img.classList.add('hidden');
       document.getElementById('reg-photo-status-text').textContent = 'สามารถถ่ายภาพสดผ่านกล้อง หรือเลือกรูปภาพจากอุปกรณ์ของท่าน';
       document.getElementById('btn-clear-photo').classList.add('hidden');
-      document.getElementById('reg-photo-input').value = '';
+      const input = document.getElementById('reg-photo-input');
+      if (input) input.value = '';
     }
 
     function handleDocumentsUpload(event) {
@@ -2668,6 +2729,7 @@
 
     function renderUploadedDocsList() {
       const container = document.getElementById('reg-docs-list');
+      if (!container) return;
       if (APP_STATE.uploadedDocs.length === 0) {
         container.innerHTML = '';
         return;
@@ -2686,14 +2748,27 @@
     }
 
     function resetRegistrationForm() {
-      document.getElementById('user-registration-form').reset();
+      const form = document.getElementById('user-registration-form');
+      if (form) form.reset();
       clearSelectedPhoto();
       APP_STATE.uploadedDocs = [];
       renderUploadedDocsList();
     }
 
+    function setRegistrationSubmitBusy(busy) {
+      APP_STATE.isSubmittingRegistration = busy;
+      const btn = document.getElementById('btn-submit-registration');
+      if (!btn) return;
+      btn.disabled = busy;
+      btn.innerHTML = busy
+        ? '<i class="fa-solid fa-spinner fa-spin"></i><span>กำลังบันทึกข้อมูล...</span>'
+        : '<i class="fa-solid fa-paper-plane"></i><span>ยืนยันส่งข้อมูลลงทะเบียน</span>';
+    }
+
     function handleRegistrationSubmit(event) {
       event.preventDefault();
+      if (APP_STATE.isSubmittingRegistration) return;
+
       const ev = APP_STATE.events.find(e => e.id === APP_STATE.selectedEventId);
       if (!ev) {
         showToast('กรุณาเลือกกิจกรรมที่ต้องการลงทะเบียน', 'error');
@@ -2713,7 +2788,7 @@
         return;
       }
 
-      const reqs = ev.fieldReqs || {};
+      const reqs = { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) };
       const department = document.getElementById('reg-department').value.trim();
       const phone = document.getElementById('reg-phone').value.trim();
       const email = document.getElementById('reg-email').value.trim();
@@ -2730,8 +2805,11 @@
         showToast('กรุณากรอกอีเมลติดต่อ', 'error');
         return;
       }
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast('รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', 'error');
+        return;
+      }
 
-      // Validate Custom Fields
       const customValues = {};
       const customFields = Array.isArray(ev.customFields) ? ev.customFields : [];
       for (const cf of customFields) {
@@ -2749,7 +2827,6 @@
         return;
       }
 
-      // Check Document Requirement (Event + Position override)
       let docRequired = reqs.documents === 'required';
       if (pos.docPolicy === 'exempt') docRequired = false;
       if (pos.docPolicy === 'required') docRequired = true;
@@ -2764,39 +2841,42 @@
         return;
       }
 
-      const refCode = 'REG-' + Math.floor(100000 + Math.random() * 900000);
-      const newReg = {
-        id: generateId('reg'),
-        refCode,
-        eventId: ev.id,
-        positionId: pos.id,
-        positionName: pos.name,
-        fullName,
-        department: department || '-',
-        phone: phone || '-',
-        email: email || '-',
-        customValues,
-        photoDataUrl: APP_STATE.photoDataUrl,
-        documents: [...APP_STATE.uploadedDocs],
-        status: 'pending',
-        rejectReason: '',
-        submittedAt: new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
-      };
+      setRegistrationSubmitBusy(true);
+      try {
+        const refCode = 'REG-' + Math.floor(100000 + Math.random() * 900000);
+        const newReg = {
+          id: generateId('reg'),
+          refCode,
+          eventId: ev.id,
+          positionId: pos.id,
+          positionName: pos.name,
+          fullName,
+          department: department || '-',
+          phone: phone || '-',
+          email: email || '-',
+          customValues,
+          photoDataUrl: APP_STATE.photoDataUrl,
+          documents: [...APP_STATE.uploadedDocs],
+          status: 'pending',
+          rejectReason: '',
+          submittedAt: new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
+        };
 
-      APP_STATE.registrations.unshift(newReg);
-      saveStateToStorage();
-      logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
+        APP_STATE.registrations.unshift(newReg);
+        saveStateToStorage();
+        logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
 
-      resetRegistrationForm();
-      showToast(`ส่งข้อมูลลงทะเบียนสำเร็จ! กำลังดาวน์โหลดใบยืนยัน (${refCode})`, 'success');
+        resetRegistrationForm();
+        showToast(`ส่งข้อมูลลงทะเบียนสำเร็จ! กำลังดาวน์โหลดใบยืนยัน (${refCode})`, 'success');
 
-      // ดาวน์โหลดใบยืนยันข้อมูลเบื้องต้นเข้าเครื่องอัตโนมัติ
-      downloadRegistrationReceiptImage(newReg, ev);
+        downloadRegistrationReceiptImage(newReg, ev);
 
-      // Switch to Status view and show their ticket immediately
-      document.getElementById('status-search-input').value = refCode;
-      switchView('status');
-      renderStatusSearchResults(refCode);
+        document.getElementById('status-search-input').value = refCode;
+        switchView('status');
+        renderStatusSearchResults(refCode);
+      } finally {
+        setRegistrationSubmitBusy(false);
+      }
     }
 
     // =========================================================================
@@ -2809,34 +2889,29 @@
       canvas.width = W;
       canvas.height = H;
       const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
       const primary = APP_STATE.theme.primary || '#0f4c3a';
       const secondary = APP_STATE.theme.secondary || '#0e7490';
       const accent = APP_STATE.theme.accent || '#d4af37';
 
-      // Background
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, W, H);
 
-      // Card Container
       ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.roundRect(36, 36, W - 72, H - 72, 24);
+      drawRoundedRect(ctx, 36, 36, W - 72, H - 72, 24);
       ctx.fill();
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Header Gradient
       const grad = ctx.createLinearGradient(36, 36, W - 36, 210);
       grad.addColorStop(0, primary);
       grad.addColorStop(1, secondary);
       ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.roundRect(36, 36, W - 72, 185, [24, 24, 0, 0]);
+      drawRoundedRect(ctx, 36, 36, W - 72, 185, [24, 24, 0, 0]);
       ctx.fill();
 
-      // Header Text
       ctx.fillStyle = accent;
       ctx.font = 'bold 20px Prompt, Sarabun, sans-serif';
       ctx.fillText('ใบยืนยันการลงทะเบียนกิจกรรม (E-RECEIPT)', 72, 92);
@@ -2849,10 +2924,8 @@
       ctx.font = '18px Sarabun, sans-serif';
       ctx.fillText('บันทึกข้อมูลเบื้องต้นเพื่อใช้ตรวจสอบสถานะและยืนยันตัวตน', 72, 174);
 
-      // Reference Code Box
       ctx.fillStyle = '#f0fdf4';
-      ctx.beginPath();
-      ctx.roundRect(72, 250, W - 144, 96, 16);
+      drawRoundedRect(ctx, 72, 250, W - 144, 96, 16);
       ctx.fill();
       ctx.strokeStyle = '#86efac';
       ctx.lineWidth = 2;
@@ -2866,11 +2939,9 @@
       ctx.font = 'bold 38px Prompt, monospace';
       ctx.fillText(reg.refCode, 100, 330);
 
-      // Status Badge
       const statusText = reg.status === 'approved' ? 'อนุมัติแล้ว' : (reg.status === 'rejected' ? 'ไม่อนุมัติ' : 'รอตรวจสอบเอกสาร');
       ctx.fillStyle = reg.status === 'approved' ? '#dcfce7' : '#fef3c7';
-      ctx.beginPath();
-      ctx.roundRect(W - 290, 274, 190, 44, 22);
+      drawRoundedRect(ctx, W - 290, 274, 190, 44, 22);
       ctx.fill();
       ctx.fillStyle = reg.status === 'approved' ? '#166534' : '#92400e';
       ctx.font = 'bold 18px Prompt, sans-serif';
@@ -2878,7 +2949,6 @@
       ctx.fillText(statusText, W - 195, 302);
       ctx.textAlign = 'left';
 
-      // Helper for wrapping text
       function drawField(label, value, yPos) {
         ctx.fillStyle = '#64748b';
         ctx.font = 'bold 17px Sarabun, sans-serif';
@@ -2918,7 +2988,6 @@
       y = drawField('เบอร์โทรศัพท์ติดต่อ', reg.phone, y);
       y = drawField('วัน-เวลาที่ส่งข้อมูล', reg.submittedAt, y);
 
-      // Footer Divider & PDPA Note
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -2931,7 +3000,6 @@
       ctx.fillText('กรุณาเก็บรหัสอ้างอิงนี้ไว้สำหรับตรวจสอบผลการอนุมัติในหน้า "ตรวจสอบสถานะ"', 72, H - 86);
       ctx.fillText('ฝ่ายศาสนกิจ โรงพยาบาลกรุงเทพคริสเตียน • มาตรฐานคุ้มครองข้อมูลส่วนบุคคล PDPA', 72, H - 60);
 
-      // Trigger Automatic Download
       canvas.toBlob(function (blob) {
         if (!blob) return;
         triggerFileDownload(blob, `ใบยืนยันลงทะเบียน_${reg.refCode}.png`);
@@ -3062,17 +3130,20 @@
       }
     }
 
+    function resetIdleTimer() {
+      if (!APP_STATE.isAdminAuthenticated) return;
+      clearTimeout(APP_STATE.idleTimer);
+      APP_STATE.idleTimer = setTimeout(() => handleAdminLogout('idle'), 15 * 60 * 1000);
+    }
+
     function startSilentIdleWatcher() {
-      stopSilentIdleWatcher();
-      const resetTimer = () => {
-        if (!APP_STATE.isAdminAuthenticated) return;
-        clearTimeout(APP_STATE.idleTimer);
-        APP_STATE.idleTimer = setTimeout(() => handleAdminLogout('idle'), 15 * 60 * 1000);
-      };
-      ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
-        window.addEventListener(evt, resetTimer, { passive: true });
-      });
-      resetTimer();
+      if (!APP_STATE.idleListenersBound) {
+        ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+          window.addEventListener(evt, resetIdleTimer, { passive: true });
+        });
+        APP_STATE.idleListenersBound = true;
+      }
+      resetIdleTimer();
     }
 
     function stopSilentIdleWatcher() {
@@ -3109,6 +3180,7 @@
       const icon = document.getElementById('icon-masking');
       const text = document.getElementById('text-masking');
       const reportInd = document.getElementById('report-masking-indicator');
+      if (!btn || !icon || !text) return;
 
       if (APP_STATE.pdpaMaskingEnabled) {
         btn.className = 'px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all bg-amber-50 border-amber-300 text-amber-800';
@@ -3134,10 +3206,13 @@
     // =========================================================================
     function populateFilterEventSelect() {
       const sel = document.getElementById('filter-reg-event');
+      if (!sel) return;
       const current = sel.value;
       sel.innerHTML = `<option value="ALL">ทุกกิจกรรม (${APP_STATE.events.length})</option>` +
         APP_STATE.events.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.title)}</option>`).join('');
-      if (current) sel.value = current;
+      if (current && Array.from(sel.options).some(o => o.value === current)) {
+        sel.value = current;
+      }
     }
 
     function renderAdminRegistrationsTable() {
@@ -3152,9 +3227,9 @@
       document.getElementById('stat-rejected-reg').textContent = rejected;
       document.getElementById('badge-pending-count').textContent = pending;
 
-      const evFilter = document.getElementById('filter-reg-event').value;
-      const stFilter = document.getElementById('filter-reg-status').value;
-      const searchQ = document.getElementById('filter-reg-search').value.trim().toLowerCase();
+      const evFilter = document.getElementById('filter-reg-event')?.value || 'ALL';
+      const stFilter = document.getElementById('filter-reg-status')?.value || 'ALL';
+      const searchQ = (document.getElementById('filter-reg-search')?.value || '').trim().toLowerCase();
 
       const filtered = APP_STATE.registrations.filter(r => {
         if (evFilter !== 'ALL' && r.eventId !== evFilter) return false;
@@ -3167,6 +3242,7 @@
       });
 
       const tbody = document.getElementById('admin-registrations-tbody');
+      if (!tbody) return;
       if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400">ไม่พบรายการผู้ลงทะเบียนตามเงื่อนไขที่เลือก</td></tr>`;
         return;
@@ -3186,7 +3262,7 @@
             <td class="py-3 px-4">
               <div class="flex items-center gap-2.5">
                 ${r.photoDataUrl
-                  ? `<img src="${r.photoDataUrl}" class="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0" />`
+                  ? `<img src="${escapeHtml(r.photoDataUrl)}" class="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0" />`
                   : `<div class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-user"></i></div>`
                 }
                 <div>
@@ -3243,7 +3319,7 @@
               <span class="text-xs font-semibold truncate">${escapeHtml(d.name)}</span>
             </div>
             ${d.dataUrl
-              ? `<a href="${d.dataUrl}" download="${escapeHtml(d.name)}" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 shrink-0">เปิดดู / ดาวน์โหลด</a>`
+              ? `<a href="${escapeHtml(d.dataUrl)}" download="${escapeHtml(d.name)}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 shrink-0">เปิดดู / ดาวน์โหลด</a>`
               : `<span class="text-[11px] text-slate-400">เอกสารตัวอย่าง</span>`
             }
           </div>`).join('')
@@ -3252,7 +3328,7 @@
       document.getElementById('review-reg-body').innerHTML = `
         <div class="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
           ${r.photoDataUrl
-            ? `<img src="${r.photoDataUrl}" class="w-24 h-24 rounded-xl object-cover border-2 border-emerald-600 shrink-0" />`
+            ? `<img src="${escapeHtml(r.photoDataUrl)}" class="w-24 h-24 rounded-xl object-cover border-2 border-emerald-600 shrink-0" />`
             : `<div class="w-24 h-24 rounded-xl bg-white border border-slate-300 flex flex-col items-center justify-center text-slate-400 shrink-0"><i class="fa-solid fa-user text-2xl"></i><span class="text-[10px] mt-1">ไม่มีรูปถ่าย</span></div>`
           }
           <div class="space-y-1 text-xs sm:text-sm flex-1">
@@ -3316,6 +3392,7 @@
       logAudit('APPROVE_REGISTRATION', `อนุมัติผู้ลงทะเบียน ${r.refCode} (${r.fullName})`);
       closeModal('modal-review-reg');
       renderAdminRegistrationsTable();
+      renderUserEventsGrid();
       showToast(`อนุมัติการลงทะเบียนของ ${r.fullName} เรียบร้อยแล้ว`, 'success');
     }
 
@@ -3457,6 +3534,7 @@
       logAudit('PDPA_RIGHT_TO_ERASURE', `ลบทำลายข้อมูลส่วนบุคคลของผู้สมัคร ${removed.refCode} (${removed.fullName})`);
       closeModal('modal-review-reg');
       renderAdminRegistrationsTable();
+      renderUserEventsGrid();
       showToast('ลบข้อมูลส่วนบุคคลออกจากระบบเรียบร้อยแล้ว', 'success');
     }
 
@@ -3742,7 +3820,7 @@
         endDate,
         status,
         description,
-        fieldReqs: { ...APP_STATE.editorFieldReqs },
+        fieldReqs: { ...DEFAULT_FIELD_REQS, ...APP_STATE.editorFieldReqs },
         docInstructions,
         customFields: validCustomFields,
         positions: validPositions
@@ -3785,7 +3863,7 @@
       document.getElementById('ev-description').value = ev.description || '';
       document.getElementById('ev-doc-instructions').value = ev.docInstructions || '';
 
-      const reqs = ev.fieldReqs || { department: 'required', phone: 'required', email: 'required', photo: 'required', documents: 'required' };
+      const reqs = { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) };
       Object.keys(reqs).forEach(k => setFieldReq(k, reqs[k]));
 
       APP_STATE.editorCustomFields = JSON.parse(JSON.stringify(ev.customFields || []));
@@ -3803,7 +3881,7 @@
       document.getElementById('btn-cancel-edit-event').classList.add('hidden');
       document.getElementById('admin-event-form').reset();
 
-      ['department', 'phone', 'email', 'photo', 'documents'].forEach(k => setFieldReq(k, 'required'));
+      Object.keys(DEFAULT_FIELD_REQS).forEach(k => setFieldReq(k, DEFAULT_FIELD_REQS[k]));
       APP_STATE.editorCustomFields = [];
       renderCustomFieldsEditor();
 
@@ -3818,6 +3896,9 @@
       const idx = APP_STATE.events.findIndex(e => e.id === eventId);
       if (idx === -1) return;
       const removed = APP_STATE.events.splice(idx, 1)[0];
+      if (APP_STATE.selectedEventId === eventId) {
+        clearSelectedEvent();
+      }
       saveStateToStorage();
       logAudit('DELETE_EVENT', `ลบกิจกรรม "${removed.title}"`);
       renderAdminEventsList();
@@ -4142,7 +4223,6 @@
         <p><strong>หน่วยงานที่รับผิดชอบ:</strong> ${escapeHtml(dept ? dept.name : '-')} | <strong>ผู้ประสานงานหลัก:</strong> ${escapeHtml(dept ? dept.coordinator : '-')} (${escapeHtml(dept ? dept.contact : '-')})</p>
       `;
 
-      // Positions Table
       document.getElementById('pdf-positions-tbody').innerHTML = (ev.positions || []).map(p => {
         const appCount = APP_STATE.registrations.filter(r => r.eventId === ev.id && r.positionId === p.id && r.status === 'approved').length;
         const pendCount = APP_STATE.registrations.filter(r => r.eventId === ev.id && r.positionId === p.id && r.status === 'pending').length;
@@ -4157,7 +4237,6 @@
           </tr>`;
       }).join('');
 
-      // Participants Table Header (with Custom Fields)
       document.getElementById('pdf-participants-thead').innerHTML = `
         <tr class="bg-slate-100 text-slate-800">
           <th class="border border-slate-300 py-2 px-2 text-center">ลำดับ</th>
@@ -4170,7 +4249,6 @@
           <th class="border border-slate-300 py-2 px-2 text-center">สถานะ</th>
         </tr>`;
 
-      // Participants Table Body
       if (participants.length === 0) {
         const colSpan = 7 + customFieldLabels.length;
         document.getElementById('pdf-participants-tbody').innerHTML =
@@ -4355,9 +4433,9 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
-        document.body.removeChild(a);
+        if (a.parentNode) a.parentNode.removeChild(a);
         URL.revokeObjectURL(url);
-      }, 200);
+      }, 250);
     }
 
     // =========================================================================
@@ -4425,7 +4503,7 @@
         <p><strong>กิจกรรม:</strong> ${escapeHtml(ev.title)}</p>
         <p><strong>ช่วงจัดงาน:</strong> ${escapeHtml(formatDateRange(ev.startDate, ev.endDate))}</p>
         <p class="text-rose-700 font-bold pt-1">
-          จำนวนข้อมูลที่จะถูกทำลายถาวร: ผู้ลงทะเบียน ${regs.length} ราย, รูปถ่าย ${photoCount} รูป, เอกสารแนบ ${docCount} ไฟล์
+          จำนวนข้อมูลที่จะถูกทำลาย: ผู้ลงทะเบียน ${regs.length} ราย, รูปถ่าย ${photoCount} รูป, เอกสารแนบ ${docCount} ไฟล์
         </p>
       `;
     }
@@ -4502,6 +4580,7 @@
       renderErasureSearchList();
       updateErasureEventPreview();
       renderAdminRegistrationsTable();
+      renderUserEventsGrid();
       showToast(`ดำเนินการทำลายข้อมูลของ ${origRef} เรียบร้อยแล้ว`, 'success');
     }
 
@@ -4550,6 +4629,7 @@
       populateErasureEventSelect();
       renderErasureSearchList();
       renderAdminRegistrationsTable();
+      renderUserEventsGrid();
       showToast(`ทำลายข้อมูลผู้ลงทะเบียนทั้งกิจกรรมจำนวน ${targetRegs.length} รายการเรียบร้อยแล้ว`, 'success');
     }
 
@@ -4635,16 +4715,23 @@
       if (el) el.classList.add('hidden');
     }
 
+    window.addEventListener('beforeunload', () => {
+      stopLiveCamera();
+    });
+
     window.addEventListener('DOMContentLoaded', async () => {
       loadStateFromStorage();
-      const loadedFromFirebase = await loadStateFromFirebase();
-      if (!loadedFromFirebase) {
-        // First launch: seed Firebase with the existing default/local data.
-        if (chapFirebaseReady) await syncStateToFirebase();
-        else setFirebaseConnectionStatus(false, 'ยังไม่ได้เชื่อมต่อ Firebase');
-      }
       applyThemeVariables(APP_STATE.theme);
       renderUserEventsGrid();
+
+      const loadedFromFirebase = await loadStateFromFirebase();
+      if (!loadedFromFirebase) {
+        if (chapFirebaseReady) await syncStateToFirebase();
+        else setFirebaseConnectionStatus(false, 'ยังไม่ได้เชื่อมต่อ Firebase');
+      } else {
+        applyThemeVariables(APP_STATE.theme);
+        renderUserEventsGrid();
+      }
     });
   </script>
 </body>
