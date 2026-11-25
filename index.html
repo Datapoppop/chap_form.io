@@ -51,7 +51,7 @@
     }
   </script>
 
-  <!-- Google Fonts: Prompt (Headings) & Sarabun (Body / Official PDF) -->
+  <!-- Google Fonts: Prompt & Sarabun -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -1598,7 +1598,7 @@
     };
 
     const RTDB_ROOT_PATH = 'bcc_chaplain_registration_v3';
-    const DATA_VERSION = '2026-11-25-v5-fast';
+    const DATA_VERSION = '2026-11-25-v6-instant';
 
     let chapFirebaseReady = false;
     let chapRtdb = null;
@@ -1772,7 +1772,7 @@
         detail
       };
       APP_STATE.auditLogs.unshift(entry);
-      if (APP_STATE.auditLogs.length > 120) APP_STATE.auditLogs.length = 120;
+      if (APP_STATE.auditLogs.length > 100) APP_STATE.auditLogs.length = 100;
       writeLocalCacheOnly();
       if (chapFirebaseReady && chapRtdb) {
         chapRtdb.ref(`${RTDB_ROOT_PATH}/auditLogs`).set(APP_STATE.auditLogs).catch(() => {});
@@ -1811,7 +1811,7 @@
     }
 
     // =========================================================================
-    // FIREBASE REALTIME DATABASE + FAST WRITE SYNC
+    // FIREBASE REALTIME DATABASE + NON-BLOCKING SYNC
     // =========================================================================
     function writeLocalCacheOnly() {
       try {
@@ -1847,7 +1847,7 @@
       ]);
     }
 
-    // อัปโหลดไฟล์ขึ้น Storage แบบเบื้องหลัง ไม่บล็อกการส่งฟอร์มหลัก
+    // ย้ายการอัปโหลดไฟล์ขึ้น Storage ไปทำเบื้องหลัง ไม่ขวางการเปลี่ยนหน้า
     async function uploadRegistrationAssetsInBackground(reg) {
       if (!chapStorage || !chapRtdb || !reg || !reg.id) return;
       let changed = false;
@@ -2502,7 +2502,7 @@
       try {
         stopLiveCamera();
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: APP_STATE.cameraFacingMode, width: { ideal: 800 }, height: { ideal: 600 } },
+          video: { facingMode: APP_STATE.cameraFacingMode, width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
         APP_STATE.cameraStream = stream;
@@ -2530,24 +2530,28 @@
       if (panel) panel.classList.add('hidden');
     }
 
-    function captureLivePhoto() {
-      const video = document.getElementById('camera-video');
-      const canvas = document.getElementById('camera-canvas');
-      if (!video || !video.videoWidth) {
-        showToast('กล้องยังไม่พร้อมถ่ายภาพ กรุณารอสักครู่', 'warning');
-        return;
-      }
-      const maxDim = 640;
-      let w = video.videoWidth;
-      let h = video.videoHeight;
+    function compressImageToDataUrl(sourceImgOrVideo, srcW, srcH, maxDim = 480, quality = 0.6) {
+      const canvas = document.createElement('canvas');
+      let w = srcW;
+      let h = srcH;
       if (w > maxDim || h > maxDim) {
         if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
         else { w = Math.round((w * maxDim) / h); h = maxDim; }
       }
       canvas.width = w;
       canvas.height = h;
-      canvas.getContext('2d').drawImage(video, 0, 0, w, h);
-      setPhotoPreview(canvas.toDataURL('image/jpeg', 0.7), 'ถ่ายภาพสดเรียบร้อยแล้ว');
+      canvas.getContext('2d').drawImage(sourceImgOrVideo, 0, 0, w, h);
+      return canvas.toDataURL('image/jpeg', quality);
+    }
+
+    function captureLivePhoto() {
+      const video = document.getElementById('camera-video');
+      if (!video || !video.videoWidth) {
+        showToast('กล้องยังไม่พร้อมถ่ายภาพ กรุณารอสักครู่', 'warning');
+        return;
+      }
+      const compressed = compressImageToDataUrl(video, video.videoWidth, video.videoHeight, 480, 0.6);
+      setPhotoPreview(compressed, 'ถ่ายภาพสดเรียบร้อยแล้ว');
       stopLiveCamera();
     }
 
@@ -2558,18 +2562,8 @@
       reader.onload = function (e) {
         const img = new Image();
         img.onload = function () {
-          const canvas = document.createElement('canvas');
-          const maxDim = 640;
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
-            else { w = Math.round((w * maxDim) / h); h = maxDim; }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          setPhotoPreview(canvas.toDataURL('image/jpeg', 0.7), `อัปโหลดรูปภาพ: ${file.name}`);
+          const compressed = compressImageToDataUrl(img, img.width, img.height, 480, 0.6);
+          setPhotoPreview(compressed, `อัปโหลดรูปภาพ: ${file.name}`);
         };
         img.onerror = function () {
           showToast('ไม่สามารถอ่านไฟล์รูปภาพได้ กรุณาเลือกไฟล์ใหม่อีกครั้ง', 'error');
@@ -2613,12 +2607,26 @@
         }
         const reader = new FileReader();
         reader.onload = function (e) {
-          APP_STATE.uploadedDocs.push({
-            name: file.name,
-            type: file.type || 'application/octet-stream',
-            dataUrl: e.target.result
-          });
-          renderUploadedDocsList();
+          if (file.type && file.type.startsWith('image/')) {
+            const img = new Image();
+            img.onload = function () {
+              const compressed = compressImageToDataUrl(img, img.width, img.height, 800, 0.65);
+              APP_STATE.uploadedDocs.push({
+                name: file.name,
+                type: 'image/jpeg',
+                dataUrl: compressed
+              });
+              renderUploadedDocsList();
+            };
+            img.src = e.target.result;
+          } else {
+            APP_STATE.uploadedDocs.push({
+              name: file.name,
+              type: file.type || 'application/octet-stream',
+              dataUrl: e.target.result
+            });
+            renderUploadedDocsList();
+          }
         };
         reader.readAsDataURL(file);
       });
@@ -2768,12 +2776,13 @@
       APP_STATE.registrations.unshift(newReg);
       writeLocalCacheOnly();
 
+      // บันทึกลง Realtime Database ทันทีและไม่รอผลสำเร็จก่อนเปลี่ยนหน้า
       if (chapFirebaseReady && chapRtdb) {
-        setSyncBadge('syncing', 'กำลังบันทึก...');
+        setSyncBadge('syncing', 'กำลังซิงค์...');
         chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${newReg.id}`).set(newReg)
           .then(() => {
             setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
-            setTimeout(() => uploadRegistrationAssetsInBackground(newReg), 200);
+            setTimeout(() => uploadRegistrationAssetsInBackground(newReg), 250);
           })
           .catch((err) => {
             console.warn('RTDB write warning:', err);
@@ -2781,19 +2790,19 @@
           });
       }
 
-      setTimeout(() => {
-        logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
-      }, 0);
-
       resetRegistrationForm();
       setRegistrationSubmitBusy(false);
-      showToast(`บันทึกข้อมูลลงทะเบียนสำเร็จ! (${refCode})`, 'success');
+      showToast(`ส่งข้อมูลลงทะเบียนแล้ว (${refCode})`, 'success');
 
       downloadRegistrationReceiptImage(newReg, ev);
 
       document.getElementById('status-search-input').value = refCode;
       switchView('status');
       renderStatusSearchResults(refCode);
+
+      setTimeout(() => {
+        logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
+      }, 50);
     }
 
     function downloadRegistrationReceiptImage(reg, ev) {
