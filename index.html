@@ -1598,7 +1598,7 @@
     };
 
     const RTDB_ROOT_PATH = 'bcc_chaplain_registration_v3';
-    const DATA_VERSION = '2026-11-25-v6-instant';
+    const DATA_VERSION = '2026-11-25-v7-error-safe';
 
     let chapFirebaseReady = false;
     let chapRtdb = null;
@@ -1764,20 +1764,26 @@
     }
 
     function logAudit(action, detail) {
-      const entry = {
-        id: generateId('log'),
-        timestamp: new Date().toLocaleString('th-TH'),
-        actor: APP_STATE.isAdminAuthenticated ? 'ผู้ดูแลระบบ (Admin)' : 'ผู้ใช้งานทั่วไป (Public)',
-        action,
-        detail
-      };
-      APP_STATE.auditLogs.unshift(entry);
-      if (APP_STATE.auditLogs.length > 100) APP_STATE.auditLogs.length = 100;
-      writeLocalCacheOnly();
-      if (chapFirebaseReady && chapRtdb) {
-        chapRtdb.ref(`${RTDB_ROOT_PATH}/auditLogs`).set(APP_STATE.auditLogs).catch(() => {});
+      try {
+        const entry = {
+          id: generateId('log'),
+          timestamp: new Date().toLocaleString('th-TH'),
+          actor: APP_STATE.isAdminAuthenticated ? 'ผู้ดูแลระบบ (Admin)' : 'ผู้ใช้งานทั่วไป (Public)',
+          action,
+          detail
+        };
+        APP_STATE.auditLogs.unshift(entry);
+        if (APP_STATE.auditLogs.length > 100) APP_STATE.auditLogs.length = 100;
+        writeLocalCacheOnly();
+        if (chapFirebaseReady && chapRtdb) {
+          chapRtdb.ref(`${RTDB_ROOT_PATH}/auditLogs`).set(APP_STATE.auditLogs).catch((err) => {
+            console.warn('Audit log write failed:', err);
+          });
+        }
+        if (APP_STATE.isAdminAuthenticated) renderAuditLogs();
+      } catch (err) {
+        console.warn('logAudit error:', err);
       }
-      if (APP_STATE.isAdminAuthenticated) renderAuditLogs();
     }
 
     function dataUrlToBlob(dataUrl, fallbackMime = 'application/octet-stream') {
@@ -1811,7 +1817,7 @@
     }
 
     // =========================================================================
-    // FIREBASE REALTIME DATABASE + NON-BLOCKING SYNC
+    // FIREBASE REALTIME DATABASE + ERROR-SAFE SYNC
     // =========================================================================
     function writeLocalCacheOnly() {
       try {
@@ -1847,7 +1853,6 @@
       ]);
     }
 
-    // ย้ายการอัปโหลดไฟล์ขึ้น Storage ไปทำเบื้องหลัง ไม่ขวางการเปลี่ยนหน้า
     async function uploadRegistrationAssetsInBackground(reg) {
       if (!chapStorage || !chapRtdb || !reg || !reg.id) return;
       let changed = false;
@@ -1903,9 +1908,11 @@
           await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${updated.id}`).update({
             photoDataUrl: updated.photoDataUrl || '',
             documents: updated.documents || []
-          }).catch(() => {});
+          }).catch((err) => console.warn('Asset URL update warning:', err));
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn('Background asset upload warning:', err);
+      }
     }
 
     let rtdbSyncTimer = null;
@@ -1962,7 +1969,7 @@
         }), 3500);
         setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
       } catch (error) {
-        console.warn('RTDB config sync warning:', error);
+        console.error('RTDB config sync error:', error);
         setSyncBadge('error', 'ออฟไลน์ / ติดสิทธิ์');
       } finally {
         rtdbSyncRunning = false;
@@ -2680,129 +2687,145 @@
       event.preventDefault();
       if (APP_STATE.isSubmittingRegistration) return;
 
-      const ev = APP_STATE.events.find(e => e.id === APP_STATE.selectedEventId);
-      if (!ev) {
-        showToast('กรุณาเลือกกิจกรรมที่ต้องการลงทะเบียน', 'error');
-        return;
-      }
-
-      const posId = document.getElementById('reg-position').value;
-      const pos = (ev.positions || []).find(p => p.id === posId);
-      if (!pos) {
-        showToast('กรุณาเลือกตำแหน่งที่ต้องการสมัคร', 'error');
-        return;
-      }
-
-      const fullName = document.getElementById('reg-fullname').value.trim();
-      if (!fullName) {
-        showToast('กรุณากรอกชื่อ - นามสกุล', 'error');
-        return;
-      }
-
-      const reqs = { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) };
-      const department = document.getElementById('reg-department').value.trim();
-      const phone = document.getElementById('reg-phone').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-
-      if (reqs.department === 'required' && !department) {
-        showToast('กรุณากรอกแผนก / สังกัด', 'error');
-        return;
-      }
-      if (reqs.phone === 'required' && !phone) {
-        showToast('กรุณากรอกเบอร์โทรศัพท์ติดต่อ', 'error');
-        return;
-      }
-      if (reqs.email === 'required' && !email) {
-        showToast('กรุณากรอกอีเมลติดต่อ', 'error');
-        return;
-      }
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showToast('รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', 'error');
-        return;
-      }
-
-      const customValues = {};
-      const customFields = Array.isArray(ev.customFields) ? ev.customFields : [];
-      for (const cf of customFields) {
-        const inputEl = document.querySelector(`[data-custom-field-id="${cf.id}"]`);
-        const val = inputEl ? inputEl.value.trim() : '';
-        if (cf.required && !val) {
-          showToast(`กรุณากรอกข้อมูล "${cf.label}"`, 'error');
+      try {
+        const ev = APP_STATE.events.find(e => e.id === APP_STATE.selectedEventId);
+        if (!ev) {
+          showToast('กรุณาเลือกกิจกรรมที่ต้องการลงทะเบียน', 'error');
           return;
         }
-        customValues[cf.label] = val || '-';
+
+        const posId = document.getElementById('reg-position').value;
+        const pos = (ev.positions || []).find(p => p.id === posId);
+        if (!pos) {
+          showToast('กรุณาเลือกตำแหน่งที่ต้องการสมัคร', 'error');
+          return;
+        }
+
+        const fullName = document.getElementById('reg-fullname').value.trim();
+        if (!fullName) {
+          showToast('กรุณากรอกชื่อ - นามสกุล', 'error');
+          return;
+        }
+
+        const reqs = { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) };
+        const department = (document.getElementById('reg-department')?.value || '').trim();
+        const phone = (document.getElementById('reg-phone')?.value || '').trim();
+        const email = (document.getElementById('reg-email')?.value || '').trim();
+
+        if (reqs.department === 'required' && !department) {
+          showToast('กรุณากรอกแผนก / สังกัด', 'error');
+          return;
+        }
+        if (reqs.phone === 'required' && !phone) {
+          showToast('กรุณากรอกเบอร์โทรศัพท์ติดต่อ', 'error');
+          return;
+        }
+        if (reqs.email === 'required' && !email) {
+          showToast('กรุณากรอกอีเมลติดต่อ', 'error');
+          return;
+        }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          showToast('รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', 'error');
+          return;
+        }
+
+        const customValues = {};
+        const customFields = Array.isArray(ev.customFields) ? ev.customFields : [];
+        for (const cf of customFields) {
+          const inputEl = document.querySelector(`[data-custom-field-id="${cf.id}"]`);
+          const val = inputEl ? String(inputEl.value || '').trim() : '';
+          if (cf.required && !val) {
+            showToast(`กรุณากรอกข้อมูล "${cf.label}"`, 'error');
+            return;
+          }
+          customValues[cf.label] = val || '-';
+        }
+
+        if (reqs.photo === 'required' && !APP_STATE.photoDataUrl) {
+          showToast('กรุณาถ่ายภาพสดหรือแนบรูปภาพประจำตัว', 'error');
+          return;
+        }
+
+        let docRequired = reqs.documents === 'required';
+        if (pos.docPolicy === 'exempt') docRequired = false;
+        if (pos.docPolicy === 'required') docRequired = true;
+
+        if (docRequired && APP_STATE.uploadedDocs.length === 0) {
+          showToast('กรุณาแนบเอกสารสำคัญ / ใบอนุญาตประกอบการสมัคร', 'error');
+          return;
+        }
+
+        if (!document.getElementById('reg-pdpa-consent').checked) {
+          showToast('กรุณากดยินยอมนโยบายคุ้มครองข้อมูลส่วนบุคคล (PDPA)', 'error');
+          return;
+        }
+
+        setRegistrationSubmitBusy(true);
+
+        const refCode = 'REG-' + Math.floor(100000 + Math.random() * 900000);
+        const safeDocs = (APP_STATE.uploadedDocs || []).map(d => ({
+          name: String(d.name || 'document'),
+          type: String(d.type || 'application/octet-stream'),
+          dataUrl: String(d.dataUrl || '')
+        }));
+
+        const newReg = {
+          id: generateId('reg'),
+          refCode,
+          eventId: String(ev.id),
+          positionId: String(pos.id),
+          positionName: String(pos.name),
+          fullName,
+          department: department || '-',
+          phone: phone || '-',
+          email: email || '-',
+          customValues,
+          photoDataUrl: String(APP_STATE.photoDataUrl || ''),
+          documents: safeDocs,
+          status: 'pending',
+          rejectReason: '',
+          submittedAt: new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
+        };
+
+        APP_STATE.registrations.unshift(newReg);
+        writeLocalCacheOnly();
+
+        if (chapFirebaseReady && chapRtdb) {
+          setSyncBadge('syncing', 'กำลังซิงค์...');
+          chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${newReg.id}`).set(newReg)
+            .then(() => {
+              setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
+              setTimeout(() => uploadRegistrationAssetsInBackground(newReg), 250);
+            })
+            .catch((rtdbErr) => {
+              console.error('RTDB write failed:', rtdbErr);
+              setSyncBadge('error', 'ติดสิทธิ์ / ออฟไลน์');
+              showToast(`บันทึกในเครื่องแล้ว แต่ส่งขึ้น Firebase ไม่สำเร็จ: ${rtdbErr.code || rtdbErr.message || 'ตรวจสอบ Rules'}`, 'warning');
+            });
+        }
+
+        resetRegistrationForm();
+        setRegistrationSubmitBusy(false);
+        showToast(`ส่งข้อมูลลงทะเบียนแล้ว (${refCode})`, 'success');
+
+        try {
+          downloadRegistrationReceiptImage(newReg, ev);
+        } catch (receiptErr) {
+          console.warn('Receipt image warning:', receiptErr);
+        }
+
+        document.getElementById('status-search-input').value = refCode;
+        switchView('status');
+        renderStatusSearchResults(refCode);
+
+        setTimeout(() => {
+          logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
+        }, 50);
+      } catch (err) {
+        console.error('Registration submit error:', err);
+        setRegistrationSubmitBusy(false);
+        showToast(`เกิดข้อผิดพลาดระหว่างบันทึกข้อมูล: ${err.message || err}`, 'error');
       }
-
-      if (reqs.photo === 'required' && !APP_STATE.photoDataUrl) {
-        showToast('กรุณาถ่ายภาพสดหรือแนบรูปภาพประจำตัว', 'error');
-        return;
-      }
-
-      let docRequired = reqs.documents === 'required';
-      if (pos.docPolicy === 'exempt') docRequired = false;
-      if (pos.docPolicy === 'required') docRequired = true;
-
-      if (docRequired && APP_STATE.uploadedDocs.length === 0) {
-        showToast('กรุณาแนบเอกสารสำคัญ / ใบอนุญาตประกอบการสมัคร', 'error');
-        return;
-      }
-
-      if (!document.getElementById('reg-pdpa-consent').checked) {
-        showToast('กรุณากดยินยอมนโยบายคุ้มครองข้อมูลส่วนบุคคล (PDPA)', 'error');
-        return;
-      }
-
-      setRegistrationSubmitBusy(true);
-
-      const refCode = 'REG-' + Math.floor(100000 + Math.random() * 900000);
-      const newReg = {
-        id: generateId('reg'),
-        refCode,
-        eventId: ev.id,
-        positionId: pos.id,
-        positionName: pos.name,
-        fullName,
-        department: department || '-',
-        phone: phone || '-',
-        email: email || '-',
-        customValues,
-        photoDataUrl: APP_STATE.photoDataUrl,
-        documents: [...APP_STATE.uploadedDocs],
-        status: 'pending',
-        rejectReason: '',
-        submittedAt: new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
-      };
-
-      APP_STATE.registrations.unshift(newReg);
-      writeLocalCacheOnly();
-
-      // บันทึกลง Realtime Database ทันทีและไม่รอผลสำเร็จก่อนเปลี่ยนหน้า
-      if (chapFirebaseReady && chapRtdb) {
-        setSyncBadge('syncing', 'กำลังซิงค์...');
-        chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${newReg.id}`).set(newReg)
-          .then(() => {
-            setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
-            setTimeout(() => uploadRegistrationAssetsInBackground(newReg), 250);
-          })
-          .catch((err) => {
-            console.warn('RTDB write warning:', err);
-            setSyncBadge('error', 'รอซิงค์ข้อมูล');
-          });
-      }
-
-      resetRegistrationForm();
-      setRegistrationSubmitBusy(false);
-      showToast(`ส่งข้อมูลลงทะเบียนแล้ว (${refCode})`, 'success');
-
-      downloadRegistrationReceiptImage(newReg, ev);
-
-      document.getElementById('status-search-input').value = refCode;
-      switchView('status');
-      renderStatusSearchResults(refCode);
-
-      setTimeout(() => {
-        logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
-      }, 50);
     }
 
     function downloadRegistrationReceiptImage(reg, ev) {
