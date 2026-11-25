@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ระบบลงทะเบียนกิจกรรม ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน</title>
+  <title>ระบบลงทะเบียน ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน</title>
 
   <!-- Auto-Breakout from LINE & In-App Browsers -->
   <script>
@@ -282,7 +282,7 @@
           </div>
           <div class="min-w-0">
             <h1 class="font-heading font-bold text-base sm:text-lg leading-tight truncate">
-              ระบบลงทะเบียนกิจกรรม ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
+              ระบบลงทะเบียน ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
             </h1>
             <p id="header-tagline" class="text-xs opacity-90 truncate mt-0.5">
               โรงพยาบาลกรุงเทพคริสเตียน • มาตรฐานคุ้มครองข้อมูลส่วนบุคคล PDPA พ.ศ. 2562
@@ -291,9 +291,8 @@
         </div>
 
         <nav class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          <!-- ซ่อนสถานะซิงค์ข้อมูลจากผู้สมัคร แสดงเฉพาะเมื่อเป็น ADMIN -->
           <button type="button" id="db-sync-badge" onclick="forceFreshCloudSync()"
-            class="hidden px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-white/15 hover:bg-white/25 text-white items-center gap-1.5 transition-all"
+            class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-white/15 hover:bg-white/25 text-white flex items-center gap-1.5 transition-all"
             title="คลิกเพื่อล้างแคชและดึงข้อมูลล่าสุดจาก Firebase Realtime Database">
             <span id="db-sync-dot" class="w-2 h-2 rounded-full bg-amber-300"></span>
             <span id="db-sync-text">กำลังเชื่อมต่อ...</span>
@@ -330,10 +329,10 @@
         <div class="relative z-10 max-w-3xl">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 border border-white/25 text-xs font-medium mb-3">
             <i class="fa-solid fa-shield-check" style="color: var(--theme-accent);"></i>
-            <span>คุ้มครองข้อมูลส่วนบุคคลตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)</span>
+            <span>ระบบนี้ได้รับการคุ้มครองข้อมูลส่วนบุคคลตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)</span>
           </div>
           <h2 class="font-heading text-xl sm:text-2xl lg:text-3xl font-bold leading-snug mb-2">
-            ระบบลงทะเบียนกิจกรรม ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
+            ระบบลงทะเบียน ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
           </h2>
           <p class="text-sm sm:text-base opacity-90 leading-relaxed">
             เลือกกิจกรรมและตำแหน่งที่ต้องการเข้าร่วมด้านล่าง กรอกข้อมูลให้ครบถ้วนและส่งคำขอลงทะเบียน เจ้าหน้าที่ฝ่ายศาสนกิจจะดำเนินการตรวจสอบและแจ้งผลให้ท่านทราบ
@@ -1599,7 +1598,7 @@
     };
 
     const RTDB_ROOT_PATH = 'bcc_chaplain_registration_v3';
-    const DATA_VERSION = '2026-11-25-v8-admin-sync-only';
+    const DATA_VERSION = '2026-11-25-v7-error-safe';
 
     let chapFirebaseReady = false;
     let chapRtdb = null;
@@ -1670,46 +1669,13 @@
       isApplyingRemoteSnapshot: false
     };
 
-    function sanitizeRtdbKey(keyStr) {
-      const cleaned = String(keyStr || '')
-        .replace(/[.$#\[\]\/]/g, '_')
-        .replace(/\s+/g, ' ')
-        .trim();
-      return cleaned || 'field';
-    }
-
-    function getCustomFieldValue(customValuesObj, label) {
-      if (!customValuesObj || typeof customValuesObj !== 'object') return '-';
-      if (Object.prototype.hasOwnProperty.call(customValuesObj, label)) {
-        return customValuesObj[label];
-      }
-      const safeKey = sanitizeRtdbKey(label);
-      if (Object.prototype.hasOwnProperty.call(customValuesObj, safeKey)) {
-        return customValuesObj[safeKey];
-      }
-      return '-';
-    }
-
     function clearLocalCacheKeys() {
       Object.values(STORAGE_KEYS).forEach(k => {
         try { localStorage.removeItem(k); } catch (_) {}
       });
     }
 
-    function updateSyncBadgeVisibility() {
-      const badge = document.getElementById('db-sync-badge');
-      if (!badge) return;
-      if (APP_STATE.isAdminAuthenticated) {
-        badge.classList.remove('hidden');
-        badge.classList.add('inline-flex');
-      } else {
-        badge.classList.add('hidden');
-        badge.classList.remove('inline-flex');
-      }
-    }
-
     function setSyncBadge(status, label) {
-      updateSyncBadgeVisibility();
       const dot = document.getElementById('db-sync-dot');
       const text = document.getElementById('db-sync-text');
       if (!dot || !text) return;
@@ -2772,7 +2738,7 @@
             showToast(`กรุณากรอกข้อมูล "${cf.label}"`, 'error');
             return;
           }
-          customValues[sanitizeRtdbKey(cf.label)] = val || '-';
+          customValues[cf.label] = val || '-';
         }
 
         if (reqs.photo === 'required' && !APP_STATE.photoDataUrl) {
@@ -2834,9 +2800,7 @@
             .catch((rtdbErr) => {
               console.error('RTDB write failed:', rtdbErr);
               setSyncBadge('error', 'ติดสิทธิ์ / ออฟไลน์');
-              if (APP_STATE.isAdminAuthenticated) {
-                showToast(`บันทึกในเครื่องแล้ว แต่ส่งขึ้น Firebase ไม่สำเร็จ: ${rtdbErr.code || rtdbErr.message || 'ตรวจสอบ Rules'}`, 'warning');
-              }
+              showToast(`บันทึกในเครื่องแล้ว แต่ส่งขึ้น Firebase ไม่สำเร็จ: ${rtdbErr.code || rtdbErr.message || 'ตรวจสอบ Rules'}`, 'warning');
             });
         }
 
@@ -3035,8 +2999,7 @@
           ? '<span class="px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-xs font-bold">ไม่อนุมัติ / แจ้งแก้ไข</span>'
           : '<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">รอตรวจสอบเอกสาร</span>';
 
-        const customFieldDefs = (ev && Array.isArray(ev.customFields)) ? ev.customFields : [];
-        const customEntries = customFieldDefs.map(cf => [cf.label, getCustomFieldValue(r.customValues, cf.label)]);
+        const customEntries = Object.entries(r.customValues || {});
 
         return `
           <div class="bg-white theme-card border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
@@ -3088,7 +3051,6 @@
       const pass = document.getElementById('admin-password').value.trim();
       if (user === 'admin' && pass === 'PDPA2026') {
         APP_STATE.isAdminAuthenticated = true;
-        updateSyncBadgeVisibility();
         document.getElementById('nav-admin-label').textContent = 'จัดการระบบ (Admin)';
         logAudit('ADMIN_LOGIN', 'ผู้ดูแลระบบเข้าสู่ระบบสำเร็จ');
         renderAdminViewState();
@@ -3101,7 +3063,6 @@
 
     function handleAdminLogout(reason = 'manual') {
       APP_STATE.isAdminAuthenticated = false;
-      updateSyncBadgeVisibility();
       APP_STATE.pdpaMaskingEnabled = true;
       updateMaskingButtonUI();
       document.getElementById('nav-admin-label').textContent = 'ผู้ดูแลระบบ';
@@ -3136,7 +3097,6 @@
     }
 
     function renderAdminViewState() {
-      updateSyncBadgeVisibility();
       const loginBox = document.getElementById('admin-login-box');
       const dashPanel = document.getElementById('admin-dashboard-panel');
       if (APP_STATE.isAdminAuthenticated) {
@@ -3287,11 +3247,10 @@
       logAudit('VIEW_REGISTRATION_DETAIL', `เปิดตรวจสอบเอกสารผู้สมัคร ${r.refCode} (${r.fullName})`);
       document.getElementById('review-reg-ref').textContent = `รหัสอ้างอิง: ${r.refCode} • ยื่นสมัครเมื่อ ${r.submittedAt}`;
 
-      const customFieldDefs = (ev && Array.isArray(ev.customFields)) ? ev.customFields : [];
-      const customRows = customFieldDefs.map(cf => `
+      const customRows = Object.entries(r.customValues || {}).map(([k, v]) => `
         <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-          <span class="text-[11px] font-bold text-slate-500 block">${escapeHtml(cf.label)}</span>
-          <span class="text-xs sm:text-sm font-semibold text-slate-800">${escapeHtml(getCustomFieldValue(r.customValues, cf.label))}</span>
+          <span class="text-[11px] font-bold text-slate-500 block">${escapeHtml(k)}</span>
+          <span class="text-xs sm:text-sm font-semibold text-slate-800">${escapeHtml(v)}</span>
         </div>
       `).join('');
 
@@ -4228,7 +4187,7 @@
         document.getElementById('pdf-participants-tbody').innerHTML = participants.map((r, idx) => {
           const stText = r.status === 'approved' ? 'อนุมัติแล้ว' : (r.status === 'rejected' ? 'ไม่อนุมัติ' : 'รอตรวจสอบ');
           const customCells = customFieldLabels.map(lbl =>
-            `<td class="border border-slate-300 py-1.5 px-2">${escapeHtml(getCustomFieldValue(r.customValues, lbl))}</td>`
+            `<td class="border border-slate-300 py-1.5 px-2">${escapeHtml((r.customValues && r.customValues[lbl]) || '-')}</td>`
           ).join('');
           return `
             <tr>
@@ -4288,7 +4247,7 @@
                   <td>${escapeHtml(r.department)}</td>
                   <td style="mso-number-format:'\\@';">${escapeHtml(maskPhone(r.phone))}</td>
                   <td>${escapeHtml(maskEmail(r.email))}</td>
-                  ${customFieldLabels.map(lbl => `<td>${escapeHtml(getCustomFieldValue(r.customValues, lbl))}</td>`).join('')}
+                  ${customFieldLabels.map(lbl => `<td>${escapeHtml((r.customValues && r.customValues[lbl]) || '-')}</td>`).join('')}
                   <td>${stText}</td>
                 </tr>`;
             }).join('')}
@@ -4365,7 +4324,7 @@
                     <td>${escapeHtml(r.positionName)}</td>
                     <td>${escapeHtml(r.department)}</td>
                     <td>${escapeHtml(maskPhone(r.phone))}<br/>${escapeHtml(maskEmail(r.email))}</td>
-                    ${customFieldLabels.map(lbl => `<td>${escapeHtml(getCustomFieldValue(r.customValues, lbl))}</td>`).join('')}
+                    ${customFieldLabels.map(lbl => `<td>${escapeHtml((r.customValues && r.customValues[lbl]) || '-')}</td>`).join('')}
                     <td align="center">${stText}</td>
                   </tr>`;
               }).join('')}
@@ -4677,7 +4636,6 @@
     });
 
     window.addEventListener('DOMContentLoaded', async () => {
-      updateSyncBadgeVisibility();
       loadStateFromStorage();
       refreshActiveViewsAfterDataUpdate();
 
