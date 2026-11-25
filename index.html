@@ -104,7 +104,7 @@
     .theme-btn-primary {
       background-color: var(--theme-primary);
       color: var(--theme-on-primary);
-      transition: all 0.15s ease;
+      transition: all 0.2s ease;
     }
     .theme-btn-primary:hover:not(:disabled) {
       background-color: var(--theme-primary-hover);
@@ -118,7 +118,7 @@
     .theme-btn-secondary {
       background-color: var(--theme-secondary);
       color: #ffffff;
-      transition: all 0.15s ease;
+      transition: all 0.2s ease;
     }
     .theme-btn-secondary:hover:not(:disabled) { filter: brightness(1.08); }
 
@@ -212,7 +212,7 @@
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    .animate-fade { animation: fadeSlideUp 0.2s ease-out; }
+    .animate-fade { animation: fadeSlideUp 0.25s ease-out; }
 
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -1580,9 +1580,10 @@
 
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
 
-  <!-- Firebase SDK (Realtime Database + Analytics) -->
+  <!-- Firebase SDK (Realtime Database + Storage + Analytics) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics-compat.js"></script>
   <script>
     const firebaseConfig = {
@@ -1597,14 +1598,16 @@
     };
 
     const RTDB_ROOT_PATH = 'bcc_chaplain_registration_v3';
-    const DATA_VERSION = '2026-11-25-fast-v5';
+    const DATA_VERSION = '2026-11-25-v5-fast';
 
     let chapFirebaseReady = false;
     let chapRtdb = null;
+    let chapStorage = null;
 
     try {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       chapRtdb = firebase.database();
+      chapStorage = firebase.storage();
       try {
         if (firebase.analytics && typeof firebase.analytics.isSupported === 'function') {
           firebase.analytics.isSupported().then(supported => {
@@ -1665,13 +1668,6 @@
       idleListenersBound: false,
       isApplyingRemoteSnapshot: false
     };
-
-    function withTimeout(promise, ms = 2500) {
-      return Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
-      ]);
-    }
 
     function clearLocalCacheKeys() {
       Object.values(STORAGE_KEYS).forEach(k => {
@@ -1762,9 +1758,9 @@
       container.appendChild(toast);
       setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.25s ease';
-        setTimeout(() => toast.remove(), 250);
-      }, 3200);
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3600);
     }
 
     function logAudit(action, detail) {
@@ -1776,12 +1772,26 @@
         detail
       };
       APP_STATE.auditLogs.unshift(entry);
-      if (APP_STATE.auditLogs.length > 100) APP_STATE.auditLogs.length = 100;
+      if (APP_STATE.auditLogs.length > 120) APP_STATE.auditLogs.length = 120;
       writeLocalCacheOnly();
-      if (chapFirebaseReady && chapRtdb && !APP_STATE.isApplyingRemoteSnapshot) {
-        withTimeout(chapRtdb.ref(`${RTDB_ROOT_PATH}/auditLogs`).set(APP_STATE.auditLogs), 2000).catch(() => {});
+      if (chapFirebaseReady && chapRtdb) {
+        chapRtdb.ref(`${RTDB_ROOT_PATH}/auditLogs`).set(APP_STATE.auditLogs).catch(() => {});
       }
       if (APP_STATE.isAdminAuthenticated) renderAuditLogs();
+    }
+
+    function dataUrlToBlob(dataUrl, fallbackMime = 'application/octet-stream') {
+      const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/i);
+      if (!match) return null;
+      const mime = match[1] || fallbackMime;
+      const base64 = match[2].replace(/\s+/g, '');
+      const binaryStr = atob(base64);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      return { blob: new Blob([bytes], { type: mime }), mime };
     }
 
     function drawRoundedRect(ctx, x, y, w, h, r) {
@@ -1801,7 +1811,7 @@
     }
 
     // =========================================================================
-    // FAST REALTIME DATABASE SYNC
+    // FIREBASE REALTIME DATABASE + FAST WRITE SYNC
     // =========================================================================
     function writeLocalCacheOnly() {
       try {
@@ -1814,6 +1824,88 @@
       } catch (e) {
         console.warn('Storage save warning:', e);
       }
+    }
+
+    async function safeHashString(str) {
+      if (window.crypto && window.crypto.subtle) {
+        try {
+          const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+          return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (_) {}
+      }
+      let hash = 5381;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+      }
+      return 'fb_' + (hash >>> 0).toString(16) + '_' + str.length;
+    }
+
+    function withTimeout(promise, ms = 2500) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+      ]);
+    }
+
+    // อัปโหลดไฟล์ขึ้น Storage แบบเบื้องหลัง ไม่บล็อกการส่งฟอร์มหลัก
+    async function uploadRegistrationAssetsInBackground(reg) {
+      if (!chapStorage || !chapRtdb || !reg || !reg.id) return;
+      let changed = false;
+      const updated = { ...reg };
+
+      try {
+        if (typeof updated.photoDataUrl === 'string' && /^data:image\//i.test(updated.photoDataUrl)) {
+          const parsed = dataUrlToBlob(updated.photoDataUrl);
+          if (parsed && parsed.blob.size <= 1.5 * 1024 * 1024) {
+            const hash = await safeHashString(updated.photoDataUrl);
+            const ext = (parsed.mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+            const ref = chapStorage.ref(`chap-form-assets/${hash}.${ext}`);
+            try {
+              updated.photoDataUrl = await withTimeout(ref.getDownloadURL(), 2000);
+            } catch (_) {
+              await withTimeout(ref.put(parsed.blob, { contentType: parsed.mime }), 3000);
+              updated.photoDataUrl = await withTimeout(ref.getDownloadURL(), 2000);
+            }
+            changed = true;
+          }
+        }
+
+        if (Array.isArray(updated.documents) && updated.documents.length > 0) {
+          const nextDocs = [];
+          for (const d of updated.documents) {
+            if (d && typeof d.dataUrl === 'string' && /^data:(image\/|application\/pdf)/i.test(d.dataUrl)) {
+              const parsed = dataUrlToBlob(d.dataUrl);
+              if (parsed && parsed.blob.size <= 1.5 * 1024 * 1024) {
+                const hash = await safeHashString(d.dataUrl);
+                const ext = parsed.mime === 'application/pdf' ? 'pdf' : (parsed.mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+                const ref = chapStorage.ref(`chap-form-assets/${hash}.${ext}`);
+                try {
+                  const url = await withTimeout(ref.getDownloadURL(), 2000);
+                  nextDocs.push({ ...d, dataUrl: url });
+                } catch (_) {
+                  await withTimeout(ref.put(parsed.blob, { contentType: parsed.mime }), 3000);
+                  const url = await withTimeout(ref.getDownloadURL(), 2000);
+                  nextDocs.push({ ...d, dataUrl: url });
+                }
+                changed = true;
+              } else {
+                nextDocs.push({ name: d.name, type: d.type, dataUrl: '' });
+                changed = true;
+              }
+            } else {
+              nextDocs.push(d);
+            }
+          }
+          updated.documents = nextDocs;
+        }
+
+        if (changed) {
+          await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${updated.id}`).update({
+            photoDataUrl: updated.photoDataUrl || '',
+            documents: updated.documents || []
+          }).catch(() => {});
+        }
+      } catch (_) {}
     }
 
     let rtdbSyncTimer = null;
@@ -1830,7 +1922,7 @@
     function scheduleRtdbSync() {
       if (!chapFirebaseReady || !chapRtdb) return;
       clearTimeout(rtdbSyncTimer);
-      rtdbSyncTimer = setTimeout(syncStateToRtdb, 150);
+      rtdbSyncTimer = setTimeout(syncStateToRtdb, 200);
     }
 
     function arrayToMapById(arr, prefix) {
@@ -1861,21 +1953,17 @@
 
       try {
         const rootRef = chapRtdb.ref(RTDB_ROOT_PATH);
-        const payload = {
+        await withTimeout(rootRef.update({
           departments: arrayToMapById(APP_STATE.departments, 'dept'),
           events: arrayToMapById(APP_STATE.events, 'ev'),
-          registrations: arrayToMapById(APP_STATE.registrations, 'reg'),
-          auditLogs: APP_STATE.auditLogs.slice(0, 100),
           theme: APP_STATE.theme,
           dataVersion: DATA_VERSION,
           updatedAt: Date.now()
-        };
-
-        await withTimeout(rootRef.set(payload), 3000);
+        }), 3500);
         setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
       } catch (error) {
-        console.warn('RTDB sync warning:', error);
-        setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
+        console.warn('RTDB config sync warning:', error);
+        setSyncBadge('error', 'ออฟไลน์ / ติดสิทธิ์');
       } finally {
         rtdbSyncRunning = false;
         if (rtdbSyncQueued) {
@@ -1944,18 +2032,24 @@
         return;
       }
       const rootRef = chapRtdb.ref(RTDB_ROOT_PATH);
-      if (rtdbListenerAttached) rootRef.off();
+      if (rtdbListenerAttached) {
+        rootRef.off();
+      }
       rtdbListenerAttached = true;
-
       rootRef.on('value', (snapshot) => {
         setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
         if (!snapshot.exists()) {
-          applyRtdbSnapshotData({ departments: [], events: [], registrations: [], auditLogs: [] });
+          applyRtdbSnapshotData({
+            departments: [],
+            events: [],
+            registrations: [],
+            auditLogs: []
+          });
           return;
         }
         applyRtdbSnapshotData(snapshot.val() || {});
       }, (error) => {
-        console.warn('RTDB listener warning:', error);
+        console.error('RTDB listener error:', error);
         setSyncBadge('error', 'เชื่อมต่อขัดข้อง');
       });
     }
@@ -1963,13 +2057,14 @@
     async function loadStateFromFirebase() {
       if (!chapFirebaseReady || !chapRtdb) return 'error';
       try {
-        const snap = await withTimeout(chapRtdb.ref(RTDB_ROOT_PATH).get(), 2500);
+        const snap = await withTimeout(chapRtdb.ref(RTDB_ROOT_PATH).get(), 3500);
         if (!snap.exists()) return 'empty';
         applyRtdbSnapshotData(snap.val() || {});
         setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
         return 'loaded';
       } catch (error) {
-        console.warn('RTDB initial load timeout/warning:', error);
+        console.error('RTDB initial load error:', error);
+        setSyncBadge('error', 'ตรวจสอบ Rules');
         return 'error';
       }
     }
@@ -1984,7 +2079,7 @@
       } else if (status === 'empty') {
         showToast('ซิงค์เรียบร้อย (ปัจจุบันยังไม่มีข้อมูลบน Cloud)', 'info');
       } else {
-        showToast('กำลังใช้ข้อมูลแคชและเชื่อมต่อเรียลไทม์', 'info');
+        showToast('ไม่สามารถดึงข้อมูลจาก Cloud ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือ Rules', 'error');
       }
     }
 
@@ -2174,7 +2269,7 @@
     }
 
     // =========================================================================
-    // USER REGISTRATION FLOW (FAST SAVE)
+    // USER REGISTRATION FLOW
     // =========================================================================
     function getDepartmentById(deptId) {
       return APP_STATE.departments.find(d => d.id === deptId) || null;
@@ -2407,7 +2502,7 @@
       try {
         stopLiveCamera();
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: APP_STATE.cameraFacingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: APP_STATE.cameraFacingMode, width: { ideal: 800 }, height: { ideal: 600 } },
           audio: false
         });
         APP_STATE.cameraStream = stream;
@@ -2442,7 +2537,7 @@
         showToast('กล้องยังไม่พร้อมถ่ายภาพ กรุณารอสักครู่', 'warning');
         return;
       }
-      const maxDim = 480;
+      const maxDim = 640;
       let w = video.videoWidth;
       let h = video.videoHeight;
       if (w > maxDim || h > maxDim) {
@@ -2452,7 +2547,7 @@
       canvas.width = w;
       canvas.height = h;
       canvas.getContext('2d').drawImage(video, 0, 0, w, h);
-      setPhotoPreview(canvas.toDataURL('image/jpeg', 0.65), 'ถ่ายภาพสดเรียบร้อยแล้ว');
+      setPhotoPreview(canvas.toDataURL('image/jpeg', 0.7), 'ถ่ายภาพสดเรียบร้อยแล้ว');
       stopLiveCamera();
     }
 
@@ -2464,7 +2559,7 @@
         const img = new Image();
         img.onload = function () {
           const canvas = document.createElement('canvas');
-          const maxDim = 480;
+          const maxDim = 640;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -2474,7 +2569,7 @@
           canvas.width = w;
           canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          setPhotoPreview(canvas.toDataURL('image/jpeg', 0.65), `อัปโหลดรูปภาพ: ${file.name}`);
+          setPhotoPreview(canvas.toDataURL('image/jpeg', 0.7), `อัปโหลดรูปภาพ: ${file.name}`);
         };
         img.onerror = function () {
           showToast('ไม่สามารถอ่านไฟล์รูปภาพได้ กรุณาเลือกไฟล์ใหม่อีกครั้ง', 'error');
@@ -2507,46 +2602,21 @@
       if (input) input.value = '';
     }
 
-    function compressImageDataUrl(dataUrl, maxDim = 640, quality = 0.65) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = function () {
-          const canvas = document.createElement('canvas');
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
-            else { w = Math.round((w * maxDim) / h); h = maxDim; }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = function () { resolve(dataUrl); };
-        img.src = dataUrl;
-      });
-    }
-
     function handleDocumentsUpload(event) {
       const files = Array.from(event.target.files || []);
       if (files.length === 0) return;
 
       files.forEach(file => {
-        if (file.size > 3 * 1024 * 1024) {
-          showToast(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 3MB กรุณาเลือกไฟล์ขนาดเล็กกว่า`, 'warning');
+        if (file.size > 4 * 1024 * 1024) {
+          showToast(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 4MB กรุณาย่อขนาดไฟล์`, 'warning');
           return;
         }
         const reader = new FileReader();
-        reader.onload = async function (e) {
-          let finalUrl = e.target.result;
-          if ((file.type || '').startsWith('image/')) {
-            finalUrl = await compressImageDataUrl(finalUrl, 640, 0.65);
-          }
+        reader.onload = function (e) {
           APP_STATE.uploadedDocs.push({
             name: file.name,
             type: file.type || 'application/octet-stream',
-            dataUrl: finalUrl
+            dataUrl: e.target.result
           });
           renderUploadedDocsList();
         };
@@ -2594,7 +2664,7 @@
       if (!btn) return;
       btn.disabled = busy;
       btn.innerHTML = busy
-        ? '<i class="fa-solid fa-spinner fa-spin"></i><span>กำลังบันทึก...</span>'
+        ? '<i class="fa-solid fa-spinner fa-spin"></i><span>กำลังบันทึกข้อมูล...</span>'
         : '<i class="fa-solid fa-paper-plane"></i><span>ยืนยันส่งข้อมูลลงทะเบียน</span>';
     }
 
@@ -2689,11 +2759,7 @@
         email: email || '-',
         customValues,
         photoDataUrl: APP_STATE.photoDataUrl,
-        documents: APP_STATE.uploadedDocs.map(d => ({
-          name: d.name,
-          type: d.type,
-          dataUrl: String(d.dataUrl || '').length > 900000 ? '' : d.dataUrl
-        })),
+        documents: [...APP_STATE.uploadedDocs],
         status: 'pending',
         rejectReason: '',
         submittedAt: new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
@@ -2703,27 +2769,31 @@
       writeLocalCacheOnly();
 
       if (chapFirebaseReady && chapRtdb) {
-        setSyncBadge('syncing', 'กำลังซิงค์...');
-        withTimeout(chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${newReg.id}`).set(newReg), 2500)
-          .then(() => setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว'))
-          .catch(() => setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว'));
+        setSyncBadge('syncing', 'กำลังบันทึก...');
+        chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${newReg.id}`).set(newReg)
+          .then(() => {
+            setSyncBadge('online', 'ซิงค์เรียลไทม์แล้ว');
+            setTimeout(() => uploadRegistrationAssetsInBackground(newReg), 200);
+          })
+          .catch((err) => {
+            console.warn('RTDB write warning:', err);
+            setSyncBadge('error', 'รอซิงค์ข้อมูล');
+          });
       }
-
-      resetRegistrationForm();
-      setRegistrationSubmitBusy(false);
-      showToast(`บันทึกสำเร็จ! รหัสอ้างอิง ${refCode}`, 'success');
-
-      try {
-        downloadRegistrationReceiptImage(newReg, ev);
-      } catch (_) {}
-
-      document.getElementById('status-search-input').value = refCode;
-      switchView('status');
-      renderStatusSearchResults(refCode);
 
       setTimeout(() => {
         logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
       }, 0);
+
+      resetRegistrationForm();
+      setRegistrationSubmitBusy(false);
+      showToast(`บันทึกข้อมูลลงทะเบียนสำเร็จ! (${refCode})`, 'success');
+
+      downloadRegistrationReceiptImage(newReg, ev);
+
+      document.getElementById('status-search-input').value = refCode;
+      switchView('status');
+      renderStatusSearchResults(refCode);
     }
 
     function downloadRegistrationReceiptImage(reg, ev) {
@@ -3161,7 +3231,7 @@
             </div>
             ${d.dataUrl
               ? `<a href="${escapeHtml(d.dataUrl)}" download="${escapeHtml(d.name)}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 shrink-0">เปิดดู / ดาวน์โหลด</a>`
-              : `<span class="text-[11px] text-slate-400">แนบไฟล์แล้ว</span>`
+              : `<span class="text-[11px] text-slate-400">เอกสารตัวอย่าง</span>`
             }
           </div>`).join('')
         : '<p class="text-xs text-slate-500 italic">ไม่มีเอกสารแนบเพิ่มเติม</p>';
@@ -3229,7 +3299,10 @@
       }
       r.status = 'approved';
       r.rejectReason = '';
-      saveStateToStorage();
+      writeLocalCacheOnly();
+      if (chapFirebaseReady && chapRtdb) {
+        chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${r.id}`).update({ status: 'approved', rejectReason: '' }).catch(() => {});
+      }
       logAudit('APPROVE_REGISTRATION', `อนุมัติผู้ลงทะเบียน ${r.refCode} (${r.fullName})`);
       closeModal('modal-review-reg');
       renderAdminRegistrationsTable();
@@ -3357,7 +3430,10 @@
       if (!r) return;
       r.status = 'rejected';
       r.rejectReason = reason;
-      saveStateToStorage();
+      writeLocalCacheOnly();
+      if (chapFirebaseReady && chapRtdb) {
+        chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${r.id}`).update({ status: 'rejected', rejectReason: reason }).catch(() => {});
+      }
       logAudit('REJECT_REGISTRATION', `ไม่อนุมัติผู้ลงทะเบียน ${r.refCode} เหตุผล: ${reason}`);
       closeModal('modal-reject-notify');
       renderAdminRegistrationsTable();
@@ -3370,7 +3446,7 @@
       const removed = APP_STATE.registrations.splice(idx, 1)[0];
       writeLocalCacheOnly();
       if (chapFirebaseReady && chapRtdb) {
-        try { await withTimeout(chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${removed.id}`).remove(), 2000); } catch (_) {}
+        try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${removed.id}`).remove(); } catch (_) {}
       }
       logAudit('PDPA_RIGHT_TO_ERASURE', `ลบทำลายข้อมูลส่วนบุคคลของผู้สมัคร ${removed.refCode} (${removed.fullName})`);
       closeModal('modal-review-reg');
@@ -3724,7 +3800,7 @@
       if (APP_STATE.selectedEventId === eventId) clearSelectedEvent();
       writeLocalCacheOnly();
       if (chapFirebaseReady && chapRtdb) {
-        try { await withTimeout(chapRtdb.ref(`${RTDB_ROOT_PATH}/events/${removed.id}`).remove(), 2000); } catch (_) {}
+        try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/events/${removed.id}`).remove(); } catch (_) {}
       }
       logAudit('DELETE_EVENT', `ลบกิจกรรม "${removed.title}"`);
       renderAdminEventsList();
@@ -3920,7 +3996,7 @@
       const removed = APP_STATE.departments.splice(idx, 1)[0];
       writeLocalCacheOnly();
       if (chapFirebaseReady && chapRtdb) {
-        try { await withTimeout(chapRtdb.ref(`${RTDB_ROOT_PATH}/departments/${removed.id}`).remove(), 2000); } catch (_) {}
+        try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/departments/${removed.id}`).remove(); } catch (_) {}
       }
       logAudit('DELETE_DEPARTMENT', `ลบหน่วยงาน "${removed.name}"`);
       renderAdminDepartmentsList();
@@ -4241,7 +4317,7 @@
       setTimeout(() => {
         if (a.parentNode) a.parentNode.removeChild(a);
         URL.revokeObjectURL(url);
-      }, 200);
+      }, 250);
     }
 
     // =========================================================================
@@ -4377,12 +4453,15 @@
         APP_STATE.registrations.splice(idx, 1);
         writeLocalCacheOnly();
         if (chapFirebaseReady && chapRtdb) {
-          try { await withTimeout(chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).remove(), 2000); } catch (_) {}
+          try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).remove(); } catch (_) {}
         }
         logAudit('PDPA_HARD_DELETE', `ลบรายการผู้ลงทะเบียนถาวร รหัส ${origRef} (${origName}) เหตุผล: ${reason}`);
       } else {
         anonymizeRegistrationRecord(target);
-        saveStateToStorage();
+        writeLocalCacheOnly();
+        if (chapFirebaseReady && chapRtdb) {
+          chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).set(target).catch(() => {});
+        }
         logAudit('PDPA_ANONYMIZE_DATA', `ทำลายข้อมูลระบุตัวตน (Anonymize) รหัส ${origRef} (${origName}) คงสถิติยอดรวมไว้ เหตุผล: ${reason}`);
       }
 
@@ -4412,13 +4491,18 @@
         writeLocalCacheOnly();
         if (chapFirebaseReady && chapRtdb) {
           for (const item of targetRegs) {
-            try { await withTimeout(chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${item.id}`).remove(), 1500); } catch (_) {}
+            try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${item.id}`).remove(); } catch (_) {}
           }
         }
         logAudit('PDPA_BULK_HARD_DELETE', `ลบข้อมูลผู้ลงทะเบียนทั้งกิจกรรม "${ev ? ev.title : evId}" ถาวร จำนวน ${targetRegs.length} รายการ (เหตุผล: ${reason})`);
       } else {
-        targetRegs.forEach(r => anonymizeRegistrationRecord(r));
-        saveStateToStorage();
+        targetRegs.forEach(r => {
+          anonymizeRegistrationRecord(r);
+          if (chapFirebaseReady && chapRtdb) {
+            chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${r.id}`).set(r).catch(() => {});
+          }
+        });
+        writeLocalCacheOnly();
         logAudit('PDPA_BULK_ANONYMIZE', `ทำลายข้อมูลระบุตัวตนทั้งกิจกรรม "${ev ? ev.title : evId}" จำนวน ${targetRegs.length} รายการ โดยคงสถิติยอดรวมไว้ (เหตุผล: ${reason})`);
       }
 
