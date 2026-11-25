@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ระบบลงทะเบียน ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน</title>
+  <title>ระบบลงทะเบียนกิจกรรม ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน</title>
 
   <!-- Auto-Breakout from LINE & In-App Browsers -->
   <script>
@@ -282,7 +282,7 @@
           </div>
           <div class="min-w-0">
             <h1 class="font-heading font-bold text-base sm:text-lg leading-tight truncate">
-              ระบบลงทะเบียน ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
+              ระบบลงทะเบียนกิจกรรม ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
             </h1>
             <p id="header-tagline" class="text-xs opacity-90 truncate mt-0.5">
               โรงพยาบาลกรุงเทพคริสเตียน • มาตรฐานคุ้มครองข้อมูลส่วนบุคคล PDPA พ.ศ. 2562
@@ -292,7 +292,7 @@
 
         <nav class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <button type="button" id="db-sync-badge" onclick="forceFreshCloudSync()"
-            class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-white/15 hover:bg-white/25 text-white flex items-center gap-1.5 transition-all"
+            class="hidden px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-white/15 hover:bg-white/25 text-white items-center gap-1.5 transition-all"
             title="คลิกเพื่อล้างแคชและดึงข้อมูลล่าสุดจาก Firebase Realtime Database">
             <span id="db-sync-dot" class="w-2 h-2 rounded-full bg-amber-300"></span>
             <span id="db-sync-text">กำลังเชื่อมต่อ...</span>
@@ -302,6 +302,13 @@
             class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 bg-white/20 text-white hover:bg-white/30">
             <i class="fa-solid fa-file-signature"></i>
             <span>ลงทะเบียนกิจกรรม</span>
+          </button>
+
+          <button type="button" id="nav-btn-calendar" onclick="switchView('calendar')"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 bg-white/10 text-white/90 hover:bg-white/25">
+            <i class="fa-solid fa-calendar-check"></i>
+            <span>ปฏิทิน & แจ้งเตือน</span>
+            <span id="nav-reminder-badge" class="hidden px-1.5 py-0.5 rounded-full text-[10px] bg-amber-400 text-slate-950 font-bold">0</span>
           </button>
 
           <button type="button" id="nav-btn-status" onclick="switchView('status')"
@@ -320,6 +327,31 @@
     </div>
   </header>
 
+  <!-- IN-APP REMINDER BANNER (ย้ำการแจ้งเตือนในระบบ) -->
+  <div id="system-reminder-banner" class="hidden bg-amber-50 border-b border-amber-300 text-amber-950 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm">
+      <div class="flex items-start sm:items-center gap-2.5">
+        <span class="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+          <i class="fa-solid fa-bell fa-shake"></i>
+        </span>
+        <div>
+          <strong class="font-heading">แจ้งเตือนย้ำกำหนดการในระบบ:</strong>
+          <span id="reminder-banner-text" class="ml-1"></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+        <button type="button" onclick="switchView('calendar')"
+          class="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold">
+          เปิดปฏิทิน
+        </button>
+        <button type="button" onclick="dismissReminderBanner()"
+          class="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-bold">
+          รับทราบ
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MAIN CONTENT CONTAINER -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
@@ -329,10 +361,10 @@
         <div class="relative z-10 max-w-3xl">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 border border-white/25 text-xs font-medium mb-3">
             <i class="fa-solid fa-shield-check" style="color: var(--theme-accent);"></i>
-            <span>ระบบนี้ได้รับการคุ้มครองข้อมูลส่วนบุคคลตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)</span>
+            <span>คุ้มครองข้อมูลส่วนบุคคลตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)</span>
           </div>
           <h2 class="font-heading text-xl sm:text-2xl lg:text-3xl font-bold leading-snug mb-2">
-            ระบบลงทะเบียน ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
+            ระบบลงทะเบียนกิจกรรม ฝ่ายศาสนกิจโรงพยาบาลกรุงเทพคริสเตียน
           </h2>
           <p class="text-sm sm:text-base opacity-90 leading-relaxed">
             เลือกกิจกรรมและตำแหน่งที่ต้องการเข้าร่วมด้านล่าง กรอกข้อมูลให้ครบถ้วนและส่งคำขอลงทะเบียน เจ้าหน้าที่ฝ่ายศาสนกิจจะดำเนินการตรวจสอบและแจ้งผลให้ท่านทราบ
@@ -560,7 +592,82 @@
       </div>
     </section>
 
-    <!-- VIEW 2: REGISTRATION STATUS CHECK VIEW -->
+    <!-- VIEW 2: CALENDAR & SYSTEM REMINDER VIEW -->
+    <section id="view-calendar" class="hidden space-y-6 animate-fade">
+      <div class="bg-white theme-card border border-slate-200 p-5 sm:p-6 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h2 class="font-heading text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-calendar-check theme-text-primary"></i>
+            <span>ปฏิทินกิจกรรมและรายการย้ำเตือนในระบบ</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">คลิกวันที่บนปฏิทินเพื่อมาร์กนัดหมาย/ย้ำเตือน หรือตรวจสอบวันจัดกิจกรรมและกำหนดการย้ำเตือนของระบบ</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" id="btn-enable-browser-notif" onclick="requestSystemNotificationPermission()"
+            class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-bell"></i>
+            <span id="label-browser-notif">เปิดแจ้งเตือนเบราว์เซอร์</span>
+          </button>
+          <button type="button" onclick="openAddCalendarMarkerModal()"
+            class="px-4 py-2 rounded-xl theme-btn-primary text-xs font-bold flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-calendar-plus"></i>
+            <span>+ มาร์กวันที่ / ตั้งย้ำเตือน</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Monthly Calendar Grid (7 cols) -->
+        <div class="lg:col-span-7 bg-white theme-card border border-slate-200 p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <button type="button" onclick="changeCalendarMonth(-1)"
+              class="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-xs font-bold text-slate-700">
+              <i class="fa-solid fa-chevron-left mr-1"></i> เดือนก่อนหน้า
+            </button>
+            <h3 id="calendar-month-title" class="font-heading text-base sm:text-lg font-bold text-slate-900"></h3>
+            <button type="button" onclick="changeCalendarMonth(1)"
+              class="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-xs font-bold text-slate-700">
+              เดือนถัดไป <i class="fa-solid fa-chevron-right ml-1"></i>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-500 pb-1">
+            <div>อา.</div>
+            <div>จ.</div>
+            <div>อ.</div>
+            <div>พ.</div>
+            <div>พฤ.</div>
+            <div>ศ.</div>
+            <div>ส.</div>
+          </div>
+
+          <div id="calendar-days-grid" class="grid grid-cols-7 gap-1.5"></div>
+
+          <div class="pt-3 border-t border-slate-100 flex items-center gap-4 flex-wrap text-[11px] text-slate-600">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span> วันจัดกิจกรรม</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> วันที่มาร์กย้ำเตือน</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-sky-100 border border-sky-400 inline-block"></span> วันนี้</span>
+          </div>
+        </div>
+
+        <!-- Marked Reminders & Selected Date List (5 cols) -->
+        <div class="lg:col-span-5 bg-white theme-card border border-slate-200 p-5 shadow-sm space-y-4 h-fit">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 id="calendar-selected-date-heading" class="font-heading text-base font-bold text-slate-900">
+                รายการย้ำเตือนและกำหนดการ
+              </h3>
+              <p class="text-xs text-slate-500">ระบบจะย้ำเตือนเมื่อถึงวันหรือก่อนถึงวันที่มาร์กไว้ (ตามจำนวนวันที่ตั้ง)</p>
+            </div>
+            <span id="calendar-reminders-count" class="px-2.5 py-0.5 rounded-full theme-badge-accent text-xs font-bold">0 รายการ</span>
+          </div>
+
+          <div id="calendar-reminders-list" class="space-y-3 max-h-[460px] overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: REGISTRATION STATUS CHECK VIEW -->
     <section id="view-status" class="hidden space-y-6 animate-fade">
       <div class="bg-white theme-card border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto">
         <div class="flex items-center gap-3 mb-4">
@@ -586,7 +693,7 @@
       <div id="status-results-container" class="max-w-3xl mx-auto space-y-4"></div>
     </section>
 
-    <!-- VIEW 3: ADMIN LOGIN & DASHBOARD VIEW -->
+    <!-- VIEW 4: ADMIN LOGIN & DASHBOARD VIEW -->
     <section id="view-admin" class="hidden space-y-6 animate-fade">
       <div id="admin-login-box" class="max-w-md mx-auto bg-white theme-card border border-slate-200 p-6 sm:p-8 shadow-md">
         <div class="text-center space-y-2 mb-6">
@@ -622,7 +729,7 @@
             </div>
             <div>
               <h2 class="font-heading text-lg font-bold text-slate-900">แผงควบคุมผู้ดูแลระบบ (Admin Console)</h2>
-              <p class="text-xs text-slate-500">จัดการผู้ลงทะเบียน กำหนดฟิลด์ข้อมูล หน่วยงานที่รับผิดชอบ และออกรายงานสรุป PDF / Excel / Word</p>
+              <p class="text-xs text-slate-500">จัดการผู้ลงทะเบียน กำหนดฟิลด์ข้อมูล ปฏิทินย้ำเตือน และออกรายงานสรุป PDF / Excel / Word</p>
             </div>
           </div>
 
@@ -1424,6 +1531,60 @@
   </footer>
 
   <!-- MODALS -->
+  <!-- Modal: Add / Edit Calendar Marker & Reminder -->
+  <div id="modal-calendar-marker" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-fade">
+      <div class="px-6 py-4 theme-header flex items-center justify-between">
+        <h3 class="font-heading font-bold text-base flex items-center gap-2">
+          <i class="fa-solid fa-bell" style="color: var(--theme-accent);"></i>
+          <span>มาร์กปฏิทิน & ตั้งการแจ้งเตือนย้ำ</span>
+        </h3>
+        <button type="button" onclick="closeModal('modal-calendar-marker')" class="text-white/80 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <form onsubmit="handleSaveCalendarReminder(event)" class="p-6 space-y-4 text-xs sm:text-sm">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">หัวข้อการมาร์ก / ข้อความย้ำเตือน <span class="text-rose-500">*</span></label>
+          <input type="text" id="cal-rem-title" required placeholder="เช่น เตรียมทีมออกหน่วยชุมชนคลองเตย / ตรวจเอกสารผู้สมัคร"
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-300 theme-focus" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">วันที่มาร์กบนปฏิทิน <span class="text-rose-500">*</span></label>
+            <input type="date" id="cal-rem-date" required
+              class="w-full px-3.5 py-2 rounded-xl border border-slate-300 theme-focus" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">เริ่มย้ำเตือนล่วงหน้า (วัน)</label>
+            <select id="cal-rem-lead-days" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white theme-focus">
+              <option value="0">เตือนเฉพาะวันที่มาร์ก (0 วัน)</option>
+              <option value="1" selected>เตือนล่วงหน้า 1 วัน</option>
+              <option value="3">เตือนล่วงหน้า 3 วัน</option>
+              <option value="7">เตือนล่วงหน้า 7 วัน</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">รายละเอียดเพิ่มเติม</label>
+          <textarea id="cal-rem-note" rows="2" placeholder="ระบุสถานที่ เวลา หรือสิ่งที่ต้องเตรียม..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-300 theme-focus"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-calendar-marker')"
+            class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 font-bold text-xs">ยกเลิก</button>
+          <button type="submit"
+            class="px-5 py-2 rounded-xl theme-btn-primary text-xs font-bold shadow-sm">
+            <i class="fa-solid fa-check mr-1"></i> บันทึกมาร์กปฏิทิน
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="modal-pdpa" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade">
       <div class="px-6 py-4 theme-header flex items-center justify-between">
@@ -1598,7 +1759,7 @@
     };
 
     const RTDB_ROOT_PATH = 'bcc_chaplain_registration_v3';
-    const DATA_VERSION = '2026-11-25-v7-error-safe';
+    const DATA_VERSION = '2026-11-25-v9-calendar-reminders';
 
     let chapFirebaseReady = false;
     let chapRtdb = null;
@@ -1627,6 +1788,7 @@
       EVENTS: 'bcc_chaplain_events_v3',
       DEPARTMENTS: 'bcc_chaplain_departments_v3',
       REGISTRATIONS: 'bcc_chaplain_registrations_v3',
+      REMINDERS: 'bcc_chaplain_reminders_v3',
       AUDIT_LOGS: 'bcc_chaplain_audit_v3',
       THEME: 'bcc_chaplain_theme_v3'
     };
@@ -1643,6 +1805,7 @@
       events: [],
       departments: [],
       registrations: [],
+      reminders: [], // { id, title, date, leadDays, note, acknowledged }
       auditLogs: [],
       theme: {
         primary: '#0f4c3a',
@@ -1666,8 +1829,40 @@
       cameraFacingMode: 'user',
       idleTimer: null,
       idleListenersBound: false,
-      isApplyingRemoteSnapshot: false
+      isApplyingRemoteSnapshot: false,
+      calendarYear: new Date().getFullYear(),
+      calendarMonth: new Date().getMonth(),
+      calendarSelectedDate: '',
+      dismissedBannerKey: ''
     };
+
+    const recentlyDeletedIds = new Set();
+
+    function markIdAsDeleted(id) {
+      if (!id) return;
+      recentlyDeletedIds.add(id);
+      setTimeout(() => recentlyDeletedIds.delete(id), 5000);
+    }
+
+    function sanitizeRtdbKey(keyStr) {
+      const cleaned = String(keyStr || '')
+        .replace(/[.$#\[\]\/]/g, '_')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return cleaned || 'field';
+    }
+
+    function getCustomFieldValue(customValuesObj, label) {
+      if (!customValuesObj || typeof customValuesObj !== 'object') return '-';
+      if (Object.prototype.hasOwnProperty.call(customValuesObj, label)) {
+        return customValuesObj[label];
+      }
+      const safeKey = sanitizeRtdbKey(label);
+      if (Object.prototype.hasOwnProperty.call(customValuesObj, safeKey)) {
+        return customValuesObj[safeKey];
+      }
+      return '-';
+    }
 
     function clearLocalCacheKeys() {
       Object.values(STORAGE_KEYS).forEach(k => {
@@ -1675,7 +1870,20 @@
       });
     }
 
+    function updateSyncBadgeVisibility() {
+      const badge = document.getElementById('db-sync-badge');
+      if (!badge) return;
+      if (APP_STATE.isAdminAuthenticated) {
+        badge.classList.remove('hidden');
+        badge.classList.add('inline-flex');
+      } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('inline-flex');
+      }
+    }
+
     function setSyncBadge(status, label) {
+      updateSyncBadgeVisibility();
       const dot = document.getElementById('db-sync-dot');
       const text = document.getElementById('db-sync-text');
       if (!dot || !text) return;
@@ -1699,6 +1907,23 @@
 
     function generateId(prefix) {
       return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+    }
+
+    function getLocalIsoDate(d = new Date()) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function daysDiffFromToday(dateStr) {
+      if (!dateStr) return 999;
+      const parts = String(dateStr).split('-');
+      if (parts.length !== 3) return 999;
+      const target = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return Math.round((target - today) / (1000 * 60 * 60 * 24));
     }
 
     function formatThaiDate(dateStr) {
@@ -1817,7 +2042,316 @@
     }
 
     // =========================================================================
-    // FIREBASE REALTIME DATABASE + ERROR-SAFE SYNC
+    // CALENDAR MARKERS & SYSTEM REMINDER ENGINE
+    // =========================================================================
+    function getActiveDueReminders() {
+      return (APP_STATE.reminders || []).filter(rem => {
+        if (rem.acknowledged) return false;
+        const diff = daysDiffFromToday(rem.date);
+        const lead = Number(rem.leadDays) || 0;
+        return diff <= lead;
+      });
+    }
+
+    function refreshSystemRemindersUI() {
+      const dueList = getActiveDueReminders();
+      const badge = document.getElementById('nav-reminder-badge');
+      if (badge) {
+        if (dueList.length > 0) {
+          badge.textContent = String(dueList.length);
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+
+      const banner = document.getElementById('system-reminder-banner');
+      const bannerText = document.getElementById('reminder-banner-text');
+      const bannerKey = dueList.map(r => `${r.id}:${r.date}`).join('|');
+
+      if (banner && bannerText) {
+        if (dueList.length > 0 && APP_STATE.dismissedBannerKey !== bannerKey) {
+          const first = dueList[0];
+          const diff = daysDiffFromToday(first.date);
+          const timingText = diff < 0
+            ? `(เลยกำหนด ${Math.abs(diff)} วัน)`
+            : (diff === 0 ? '(วันนี้)' : `(อีก ${diff} วัน)`);
+          const extraText = dueList.length > 1 ? ` และอีก ${dueList.length - 1} รายการ` : '';
+          bannerText.textContent = `${first.title} — ${formatThaiDate(first.date)} ${timingText}${extraText}`;
+          banner.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+
+      updateBrowserNotifButtonLabel();
+    }
+
+    function dismissReminderBanner() {
+      const dueList = getActiveDueReminders();
+      APP_STATE.dismissedBannerKey = dueList.map(r => `${r.id}:${r.date}`).join('|');
+      const banner = document.getElementById('system-reminder-banner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    function updateBrowserNotifButtonLabel() {
+      const label = document.getElementById('label-browser-notif');
+      if (!label || typeof Notification === 'undefined') return;
+      if (Notification.permission === 'granted') {
+        label.textContent = 'เปิดแจ้งเตือนเบราว์เซอร์แล้ว';
+      } else if (Notification.permission === 'denied') {
+        label.textContent = 'เบราว์เซอร์ปิดแจ้งเตือน';
+      } else {
+        label.textContent = 'เปิดแจ้งเตือนเบราว์เซอร์';
+      }
+    }
+
+    async function requestSystemNotificationPermission() {
+      if (typeof Notification === 'undefined') {
+        showToast('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนนอกหน้าต่าง ระบบจะแจ้งเตือนย้ำบนหน้าเว็บให้ครับ', 'info');
+        return;
+      }
+      try {
+        const perm = await Notification.requestPermission();
+        updateBrowserNotifButtonLabel();
+        if (perm === 'granted') {
+          showToast('เปิดการแจ้งเตือนของระบบเรียบร้อยแล้ว', 'success');
+          const due = getActiveDueReminders();
+          if (due.length > 0) {
+            new Notification('แจ้งเตือนย้ำกำหนดการฝ่ายศาสนกิจ', {
+              body: `${due[0].title} (${formatThaiDate(due[0].date)})`
+            });
+          }
+        } else {
+          showToast('ระบบยังแจ้งเตือนย้ำบนหน้าเว็บให้ตามปกติครับ', 'info');
+        }
+      } catch (_) {
+        showToast('ไม่สามารถขอสิทธิ์แจ้งเตือนได้ ระบบจะแจ้งเตือนบนหน้าเว็บให้แทน', 'info');
+      }
+    }
+
+    function openAddCalendarMarkerModal(presetDate = '') {
+      document.getElementById('cal-rem-title').value = '';
+      document.getElementById('cal-rem-date').value = presetDate || APP_STATE.calendarSelectedDate || getLocalIsoDate();
+      document.getElementById('cal-rem-lead-days').value = '1';
+      document.getElementById('cal-rem-note').value = '';
+      document.getElementById('modal-calendar-marker').classList.remove('hidden');
+    }
+
+    function handleSaveCalendarReminder(e) {
+      e.preventDefault();
+      const title = document.getElementById('cal-rem-title').value.trim();
+      const date = document.getElementById('cal-rem-date').value;
+      const leadDays = parseInt(document.getElementById('cal-rem-lead-days').value, 10) || 0;
+      const note = document.getElementById('cal-rem-note').value.trim();
+
+      if (!title || !date) {
+        showToast('กรุณากรอกหัวข้อและวันที่มาร์กปฏิทิน', 'error');
+        return;
+      }
+
+      const item = {
+        id: generateId('rem'),
+        title,
+        date,
+        leadDays,
+        note,
+        acknowledged: false
+      };
+
+      APP_STATE.reminders.unshift(item);
+      APP_STATE.dismissedBannerKey = '';
+      APP_STATE.calendarSelectedDate = date;
+      writeLocalCacheOnly();
+
+      if (chapFirebaseReady && chapRtdb) {
+        chapRtdb.ref(`${RTDB_ROOT_PATH}/reminders/${item.id}`).set(item).catch(() => {});
+      }
+
+      logAudit('CALENDAR_REMINDER_ADDED', `มาร์กปฏิทินและตั้งย้ำเตือน "${title}" วันที่ ${date}`);
+      closeModal('modal-calendar-marker');
+      renderCalendarView();
+      refreshSystemRemindersUI();
+      showToast('มาร์กวันที่และตั้งการแจ้งเตือนย้ำในระบบเรียบร้อยแล้ว', 'success');
+    }
+
+    function toggleAcknowledgeReminder(remId) {
+      const rem = APP_STATE.reminders.find(r => r.id === remId);
+      if (!rem) return;
+      rem.acknowledged = !rem.acknowledged;
+      APP_STATE.dismissedBannerKey = '';
+      writeLocalCacheOnly();
+      if (chapFirebaseReady && chapRtdb) {
+        chapRtdb.ref(`${RTDB_ROOT_PATH}/reminders/${rem.id}`).update({ acknowledged: rem.acknowledged }).catch(() => {});
+      }
+      renderCalendarView();
+      refreshSystemRemindersUI();
+    }
+
+    async function deleteCalendarReminder(remId) {
+      const idx = APP_STATE.reminders.findIndex(r => r.id === remId);
+      if (idx === -1) return;
+      const removed = APP_STATE.reminders.splice(idx, 1)[0];
+      markIdAsDeleted(removed.id);
+      writeLocalCacheOnly();
+      renderCalendarView();
+      refreshSystemRemindersUI();
+      if (chapFirebaseReady && chapRtdb) {
+        try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/reminders/${removed.id}`).remove(); } catch (_) {}
+      }
+      showToast('ลบรายการย้ำเตือนออกจากปฏิทินแล้ว', 'info');
+    }
+
+    function downloadReminderIcs(remId) {
+      const rem = APP_STATE.reminders.find(r => r.id === remId);
+      if (!rem || !rem.date) return;
+      const compactDate = String(rem.date).replace(/-/g, '');
+      const ics = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//BCC Chaplaincy//Event Reminder//TH',
+        'BEGIN:VEVENT',
+        `UID:${rem.id}@bcc-chaplain`,
+        `DTSTART;VALUE=DATE:${compactDate}`,
+        `SUMMARY:${String(rem.title || '').replace(/\r?\n/g, ' ')}`,
+        `DESCRIPTION:${String(rem.note || '').replace(/\r?\n/g, ' ')}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
+      triggerFileDownload(blob, `แจ้งเตือน_${compactDate}.ics`);
+      showToast('ดาวน์โหลดไฟล์ปฏิทิน (.ics) เรียบร้อยแล้ว', 'success');
+    }
+
+    function changeCalendarMonth(delta) {
+      let m = APP_STATE.calendarMonth + delta;
+      let y = APP_STATE.calendarYear;
+      while (m < 0) { m += 12; y -= 1; }
+      while (m > 11) { m -= 12; y += 1; }
+      APP_STATE.calendarYear = y;
+      APP_STATE.calendarMonth = m;
+      renderCalendarView();
+    }
+
+    function selectCalendarDate(dateStr) {
+      APP_STATE.calendarSelectedDate = dateStr;
+      renderCalendarView();
+    }
+
+    function renderCalendarView() {
+      const titleEl = document.getElementById('calendar-month-title');
+      const gridEl = document.getElementById('calendar-days-grid');
+      if (!titleEl || !gridEl) return;
+
+      const thaiMonths = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+      ];
+      const y = APP_STATE.calendarYear;
+      const m = APP_STATE.calendarMonth;
+      titleEl.textContent = `${thaiMonths[m]} พ.ศ. ${y + 543}`;
+
+      const firstDayIndex = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const todayIso = getLocalIsoDate();
+
+      const cells = [];
+      for (let i = 0; i < firstDayIndex; i++) {
+        cells.push(`<div class="h-14 rounded-xl bg-slate-50/50"></div>`);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasEvent = APP_STATE.events.some(ev =>
+          ev.startDate && ev.endDate && iso >= ev.startDate && iso <= ev.endDate
+        );
+        const dayReminders = APP_STATE.reminders.filter(rem => rem.date === iso);
+        const isToday = iso === todayIso;
+        const isSelected = iso === APP_STATE.calendarSelectedDate;
+
+        let borderClass = 'border-slate-200 bg-white hover:border-slate-400';
+        if (isSelected) borderClass = 'theme-ring-selected bg-emerald-50/40';
+        else if (isToday) borderClass = 'border-sky-400 bg-sky-50/70';
+
+        cells.push(`
+          <button type="button" onclick="selectCalendarDate('${iso}')"
+            class="h-14 rounded-xl border ${borderClass} p-1.5 flex flex-col items-start justify-between transition-all text-left">
+            <span class="text-xs font-bold ${isToday ? 'text-sky-700' : 'text-slate-800'}">${day}</span>
+            <div class="flex items-center gap-1">
+              ${hasEvent ? '<span class="w-2 h-2 rounded-full bg-emerald-600" title="มีกิจกรรม"></span>' : ''}
+              ${dayReminders.length > 0 ? '<span class="w-2 h-2 rounded-full bg-amber-500" title="มาร์กย้ำเตือน"></span>' : ''}
+            </div>
+          </button>
+        `);
+      }
+
+      gridEl.innerHTML = cells.join('');
+
+      const listEl = document.getElementById('calendar-reminders-list');
+      const countEl = document.getElementById('calendar-reminders-count');
+      const headingEl = document.getElementById('calendar-selected-date-heading');
+      if (!listEl) return;
+
+      const sortedReminders = [...APP_STATE.reminders].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      if (countEl) countEl.textContent = `${sortedReminders.length} รายการ`;
+      if (headingEl) {
+        headingEl.textContent = APP_STATE.calendarSelectedDate
+          ? `กำหนดการ & มาร์กเตือน (${formatThaiDate(APP_STATE.calendarSelectedDate)})`
+          : 'รายการย้ำเตือนและกำหนดการทั้งหมด';
+      }
+
+      const eventBlocks = APP_STATE.events.map(ev => `
+        <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-700 text-white">กิจกรรม</span>
+            <span class="text-[11px] font-bold text-emerald-900">${escapeHtml(formatDateRange(ev.startDate, ev.endDate))}</span>
+          </div>
+          <p class="text-xs font-bold text-slate-900">${escapeHtml(ev.title)}</p>
+          <p class="text-[11px] text-slate-600">${escapeHtml(ev.location || '')}</p>
+        </div>
+      `).join('');
+
+      const remBlocks = sortedReminders.map(rem => {
+        const diff = daysDiffFromToday(rem.date);
+        const isDue = !rem.acknowledged && diff <= (Number(rem.leadDays) || 0);
+        return `
+          <div class="p-3.5 rounded-xl border ${isDue ? 'bg-amber-50 border-amber-300' : 'bg-white border-slate-200'} space-y-1.5">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isDue ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 text-slate-700'}">
+                  ${isDue ? 'ต้องย้ำเตือน' : (rem.acknowledged ? 'รับทราบแล้ว' : 'มาร์กไว้')}
+                </span>
+                <span class="text-xs font-bold text-slate-800">${escapeHtml(formatThaiDate(rem.date))}</span>
+              </div>
+              <span class="text-[11px] text-slate-500">เตือนล่วงหน้า ${rem.leadDays || 0} วัน</span>
+            </div>
+            <p class="text-xs sm:text-sm font-bold text-slate-900 ${rem.acknowledged ? 'line-through opacity-60' : ''}">${escapeHtml(rem.title)}</p>
+            ${rem.note ? `<p class="text-xs text-slate-600">${escapeHtml(rem.note)}</p>` : ''}
+            <div class="pt-1.5 flex items-center justify-end gap-2 flex-wrap">
+              <button type="button" onclick="downloadReminderIcs('${escapeHtml(rem.id)}')"
+                class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold">
+                <i class="fa-solid fa-calendar-arrow-down mr-1"></i> .ics
+              </button>
+              <button type="button" onclick="toggleAcknowledgeReminder('${escapeHtml(rem.id)}')"
+                class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                ${rem.acknowledged ? 'เปิดเตือนใหม่' : 'รับทราบแล้ว'}
+              </button>
+              <button type="button" onclick="deleteCalendarReminder('${escapeHtml(rem.id)}')"
+                class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-bold">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      listEl.innerHTML = (eventBlocks + remBlocks) || `
+        <p class="text-xs text-slate-400 text-center py-6">ยังไม่มีกำหนดการหรือรายการมาร์กย้ำเตือน</p>
+      `;
+    }
+
+    // =========================================================================
+    // FIREBASE REALTIME DATABASE + DELETE-SAFE SYNC
     // =========================================================================
     function writeLocalCacheOnly() {
       try {
@@ -1825,6 +2359,7 @@
         localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(APP_STATE.events));
         localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(APP_STATE.departments));
         localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(APP_STATE.registrations));
+        localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(APP_STATE.reminders));
         localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(APP_STATE.auditLogs));
         localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(APP_STATE.theme));
       } catch (e) {
@@ -1854,7 +2389,7 @@
     }
 
     async function uploadRegistrationAssetsInBackground(reg) {
-      if (!chapStorage || !chapRtdb || !reg || !reg.id) return;
+      if (!chapStorage || !chapRtdb || !reg || !reg.id || recentlyDeletedIds.has(reg.id)) return;
       let changed = false;
       const updated = { ...reg };
 
@@ -1904,7 +2439,7 @@
           updated.documents = nextDocs;
         }
 
-        if (changed) {
+        if (changed && !recentlyDeletedIds.has(updated.id)) {
           await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${updated.id}`).update({
             photoDataUrl: updated.photoDataUrl || '',
             documents: updated.documents || []
@@ -1936,6 +2471,7 @@
       const map = {};
       (arr || []).forEach((item, idx) => {
         const key = item.id || `${prefix}_${idx}`;
+        if (recentlyDeletedIds.has(key)) return;
         map[key] = { ...item, id: key };
       });
       return map;
@@ -1963,6 +2499,7 @@
         await withTimeout(rootRef.update({
           departments: arrayToMapById(APP_STATE.departments, 'dept'),
           events: arrayToMapById(APP_STATE.events, 'ev'),
+          reminders: arrayToMapById(APP_STATE.reminders, 'rem'),
           theme: APP_STATE.theme,
           dataVersion: DATA_VERSION,
           updatedAt: Date.now()
@@ -1985,14 +2522,16 @@
       APP_STATE.isApplyingRemoteSnapshot = true;
       try {
         if (raw.departments) {
-          const depts = Array.isArray(raw.departments) ? raw.departments : mapToArray(raw.departments);
+          const depts = (Array.isArray(raw.departments) ? raw.departments : mapToArray(raw.departments))
+            .filter(d => !recentlyDeletedIds.has(d.id));
           APP_STATE.departments = depts;
         } else {
           APP_STATE.departments = [];
         }
 
         if (raw.events) {
-          const evs = Array.isArray(raw.events) ? raw.events : mapToArray(raw.events);
+          const evs = (Array.isArray(raw.events) ? raw.events : mapToArray(raw.events))
+            .filter(ev => !recentlyDeletedIds.has(ev.id));
           APP_STATE.events = evs.map(ev => ({
             ...ev,
             fieldReqs: { ...DEFAULT_FIELD_REQS, ...(ev.fieldReqs || {}) },
@@ -2004,7 +2543,8 @@
         }
 
         if (raw.registrations) {
-          const regs = Array.isArray(raw.registrations) ? raw.registrations : mapToArray(raw.registrations);
+          const regs = (Array.isArray(raw.registrations) ? raw.registrations : mapToArray(raw.registrations))
+            .filter(r => !recentlyDeletedIds.has(r.id));
           regs.sort((a, b) => String(b.id || '').localeCompare(String(a.id || '')));
           APP_STATE.registrations = regs.map(r => ({
             ...r,
@@ -2013,6 +2553,13 @@
           }));
         } else {
           APP_STATE.registrations = [];
+        }
+
+        if (raw.reminders) {
+          APP_STATE.reminders = (Array.isArray(raw.reminders) ? raw.reminders : mapToArray(raw.reminders))
+            .filter(rem => !recentlyDeletedIds.has(rem.id));
+        } else {
+          APP_STATE.reminders = [];
         }
 
         if (Array.isArray(raw.auditLogs)) {
@@ -2050,6 +2597,7 @@
             departments: [],
             events: [],
             registrations: [],
+            reminders: [],
             auditLogs: []
           });
           return;
@@ -2091,6 +2639,7 @@
     }
 
     function getSeedData() {
+      const todayIso = getLocalIsoDate();
       return {
         departments: [
           {
@@ -2138,6 +2687,16 @@
               { id: 'pos_vol', name: 'อาสาสมัครฝ่ายศาสนกิจ / ประสานงาน', quota: 10, docPolicy: 'exempt' }
             ]
           }
+        ],
+        reminders: [
+          {
+            id: 'rem_default_1',
+            title: 'ย้ำเตือนตรวจสอบรายชื่อและเอกสารผู้ลงทะเบียนออกหน่วย',
+            date: todayIso,
+            leadDays: 1,
+            note: 'ตรวจสอบสถานะผู้สมัครและเตรียมความพร้อมทีมประสานงาน',
+            acknowledged: false
+          }
         ]
       };
     }
@@ -2153,6 +2712,7 @@
         const savedDepts = JSON.parse(localStorage.getItem(STORAGE_KEYS.DEPARTMENTS) || 'null');
         const savedEvents = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || 'null');
         const savedRegs = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || 'null');
+        const savedRems = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMINDERS) || 'null');
         const savedLogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS) || 'null');
         const savedTheme = JSON.parse(localStorage.getItem(STORAGE_KEYS.THEME) || 'null');
         const seed = getSeedData();
@@ -2168,6 +2728,7 @@
             }))
           : seed.events;
         APP_STATE.registrations = Array.isArray(savedRegs) ? savedRegs : [];
+        APP_STATE.reminders = Array.isArray(savedRems) ? savedRems : seed.reminders;
         APP_STATE.auditLogs = Array.isArray(savedLogs) ? savedLogs : [];
       } catch (err) {
         console.error('Error loading state:', err);
@@ -2177,6 +2738,8 @@
     function refreshActiveViewsAfterDataUpdate() {
       applyThemeVariables(APP_STATE.theme);
       renderUserEventsGrid();
+      renderCalendarView();
+      refreshSystemRemindersUI();
 
       if (APP_STATE.selectedEventId) {
         const stillExists = APP_STATE.events.some(e => e.id === APP_STATE.selectedEventId && e.status === 'open');
@@ -2232,7 +2795,7 @@
     // =========================================================================
     function switchView(viewName) {
       if (viewName !== 'register') stopLiveCamera();
-      ['register', 'status', 'admin'].forEach(v => {
+      ['register', 'calendar', 'status', 'admin'].forEach(v => {
         const el = document.getElementById('view-' + v);
         const btn = document.getElementById('nav-btn-' + v);
         if (el) el.classList.toggle('hidden', v !== viewName);
@@ -2248,6 +2811,7 @@
       });
 
       if (viewName === 'register') renderUserEventsGrid();
+      else if (viewName === 'calendar') renderCalendarView();
       else if (viewName === 'admin') renderAdminViewState();
     }
 
@@ -2738,7 +3302,7 @@
             showToast(`กรุณากรอกข้อมูล "${cf.label}"`, 'error');
             return;
           }
-          customValues[cf.label] = val || '-';
+          customValues[sanitizeRtdbKey(cf.label)] = val || '-';
         }
 
         if (reqs.photo === 'required' && !APP_STATE.photoDataUrl) {
@@ -2800,7 +3364,9 @@
             .catch((rtdbErr) => {
               console.error('RTDB write failed:', rtdbErr);
               setSyncBadge('error', 'ติดสิทธิ์ / ออฟไลน์');
-              showToast(`บันทึกในเครื่องแล้ว แต่ส่งขึ้น Firebase ไม่สำเร็จ: ${rtdbErr.code || rtdbErr.message || 'ตรวจสอบ Rules'}`, 'warning');
+              if (APP_STATE.isAdminAuthenticated) {
+                showToast(`บันทึกในเครื่องแล้ว แต่ส่งขึ้น Firebase ไม่สำเร็จ: ${rtdbErr.code || rtdbErr.message || 'ตรวจสอบ Rules'}`, 'warning');
+              }
             });
         }
 
@@ -2999,7 +3565,8 @@
           ? '<span class="px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-xs font-bold">ไม่อนุมัติ / แจ้งแก้ไข</span>'
           : '<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">รอตรวจสอบเอกสาร</span>';
 
-        const customEntries = Object.entries(r.customValues || {});
+        const customFieldDefs = (ev && Array.isArray(ev.customFields)) ? ev.customFields : [];
+        const customEntries = customFieldDefs.map(cf => [cf.label, getCustomFieldValue(r.customValues, cf.label)]);
 
         return `
           <div class="bg-white theme-card border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
@@ -3051,6 +3618,7 @@
       const pass = document.getElementById('admin-password').value.trim();
       if (user === 'admin' && pass === 'PDPA2026') {
         APP_STATE.isAdminAuthenticated = true;
+        updateSyncBadgeVisibility();
         document.getElementById('nav-admin-label').textContent = 'จัดการระบบ (Admin)';
         logAudit('ADMIN_LOGIN', 'ผู้ดูแลระบบเข้าสู่ระบบสำเร็จ');
         renderAdminViewState();
@@ -3063,6 +3631,7 @@
 
     function handleAdminLogout(reason = 'manual') {
       APP_STATE.isAdminAuthenticated = false;
+      updateSyncBadgeVisibility();
       APP_STATE.pdpaMaskingEnabled = true;
       updateMaskingButtonUI();
       document.getElementById('nav-admin-label').textContent = 'ผู้ดูแลระบบ';
@@ -3097,6 +3666,7 @@
     }
 
     function renderAdminViewState() {
+      updateSyncBadgeVisibility();
       const loginBox = document.getElementById('admin-login-box');
       const dashPanel = document.getElementById('admin-dashboard-panel');
       if (APP_STATE.isAdminAuthenticated) {
@@ -3247,10 +3817,11 @@
       logAudit('VIEW_REGISTRATION_DETAIL', `เปิดตรวจสอบเอกสารผู้สมัคร ${r.refCode} (${r.fullName})`);
       document.getElementById('review-reg-ref').textContent = `รหัสอ้างอิง: ${r.refCode} • ยื่นสมัครเมื่อ ${r.submittedAt}`;
 
-      const customRows = Object.entries(r.customValues || {}).map(([k, v]) => `
+      const customFieldDefs = (ev && Array.isArray(ev.customFields)) ? ev.customFields : [];
+      const customRows = customFieldDefs.map(cf => `
         <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-          <span class="text-[11px] font-bold text-slate-500 block">${escapeHtml(k)}</span>
-          <span class="text-xs sm:text-sm font-semibold text-slate-800">${escapeHtml(v)}</span>
+          <span class="text-[11px] font-bold text-slate-500 block">${escapeHtml(cf.label)}</span>
+          <span class="text-xs sm:text-sm font-semibold text-slate-800">${escapeHtml(getCustomFieldValue(r.customValues, cf.label))}</span>
         </div>
       `).join('');
 
@@ -3476,14 +4047,21 @@
       const idx = APP_STATE.registrations.findIndex(r => r.id === regId);
       if (idx === -1) return;
       const removed = APP_STATE.registrations.splice(idx, 1)[0];
+      markIdAsDeleted(removed.id);
       writeLocalCacheOnly();
-      if (chapFirebaseReady && chapRtdb) {
-        try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${removed.id}`).remove(); } catch (_) {}
-      }
-      logAudit('PDPA_RIGHT_TO_ERASURE', `ลบทำลายข้อมูลส่วนบุคคลของผู้สมัคร ${removed.refCode} (${removed.fullName})`);
-      closeModal('modal-review-reg');
       renderAdminRegistrationsTable();
       renderUserEventsGrid();
+      closeModal('modal-review-reg');
+
+      if (chapFirebaseReady && chapRtdb) {
+        try {
+          await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${removed.id}`).remove();
+        } catch (err) {
+          console.error('RTDB delete registration error:', err);
+          showToast('ลบในเครื่องแล้ว แต่ลบบน Firebase ไม่สำเร็จ กรุณาตรวจ Rules', 'warning');
+        }
+      }
+      logAudit('PDPA_RIGHT_TO_ERASURE', `ลบทำลายข้อมูลส่วนบุคคลของผู้สมัคร ${removed.refCode} (${removed.fullName})`);
       showToast('ลบข้อมูลส่วนบุคคลออกจากระบบเรียบร้อยแล้ว', 'success');
     }
 
@@ -3774,6 +4352,7 @@
       resetEventEditorForm();
       renderAdminEventsList();
       renderUserEventsGrid();
+      renderCalendarView();
     }
 
     function editEventItem(eventId) {
@@ -3829,14 +4408,22 @@
       const idx = APP_STATE.events.findIndex(e => e.id === eventId);
       if (idx === -1) return;
       const removed = APP_STATE.events.splice(idx, 1)[0];
+      markIdAsDeleted(removed.id);
       if (APP_STATE.selectedEventId === eventId) clearSelectedEvent();
       writeLocalCacheOnly();
-      if (chapFirebaseReady && chapRtdb) {
-        try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/events/${removed.id}`).remove(); } catch (_) {}
-      }
-      logAudit('DELETE_EVENT', `ลบกิจกรรม "${removed.title}"`);
       renderAdminEventsList();
       renderUserEventsGrid();
+      renderCalendarView();
+
+      if (chapFirebaseReady && chapRtdb) {
+        try {
+          await chapRtdb.ref(`${RTDB_ROOT_PATH}/events/${removed.id}`).remove();
+        } catch (err) {
+          console.error('RTDB delete event error:', err);
+          showToast('ลบในเครื่องแล้ว แต่ลบกิจกรรมบน Firebase ไม่สำเร็จ กรุณาตรวจ Rules', 'warning');
+        }
+      }
+      logAudit('DELETE_EVENT', `ลบกิจกรรม "${removed.title}"`);
       showToast('ลบกิจกรรมเรียบร้อยแล้ว', 'info');
     }
 
@@ -4026,14 +4613,15 @@
       const idx = APP_STATE.departments.findIndex(d => d.id === deptId);
       if (idx === -1) return;
       const removed = APP_STATE.departments.splice(idx, 1)[0];
+      markIdAsDeleted(removed.id);
       writeLocalCacheOnly();
+      renderAdminDepartmentsList();
+      populateEventDepartmentDropdown();
+      renderUserEventsGrid();
       if (chapFirebaseReady && chapRtdb) {
         try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/departments/${removed.id}`).remove(); } catch (_) {}
       }
       logAudit('DELETE_DEPARTMENT', `ลบหน่วยงาน "${removed.name}"`);
-      renderAdminDepartmentsList();
-      populateEventDepartmentDropdown();
-      renderUserEventsGrid();
       showToast('ลบหน่วยงานเรียบร้อยแล้ว', 'info');
     }
     window.deleteDepartmentById = deleteDepartmentById;
@@ -4187,7 +4775,7 @@
         document.getElementById('pdf-participants-tbody').innerHTML = participants.map((r, idx) => {
           const stText = r.status === 'approved' ? 'อนุมัติแล้ว' : (r.status === 'rejected' ? 'ไม่อนุมัติ' : 'รอตรวจสอบ');
           const customCells = customFieldLabels.map(lbl =>
-            `<td class="border border-slate-300 py-1.5 px-2">${escapeHtml((r.customValues && r.customValues[lbl]) || '-')}</td>`
+            `<td class="border border-slate-300 py-1.5 px-2">${escapeHtml(getCustomFieldValue(r.customValues, lbl))}</td>`
           ).join('');
           return `
             <tr>
@@ -4247,7 +4835,7 @@
                   <td>${escapeHtml(r.department)}</td>
                   <td style="mso-number-format:'\\@';">${escapeHtml(maskPhone(r.phone))}</td>
                   <td>${escapeHtml(maskEmail(r.email))}</td>
-                  ${customFieldLabels.map(lbl => `<td>${escapeHtml((r.customValues && r.customValues[lbl]) || '-')}</td>`).join('')}
+                  ${customFieldLabels.map(lbl => `<td>${escapeHtml(getCustomFieldValue(r.customValues, lbl))}</td>`).join('')}
                   <td>${stText}</td>
                 </tr>`;
             }).join('')}
@@ -4324,7 +4912,7 @@
                     <td>${escapeHtml(r.positionName)}</td>
                     <td>${escapeHtml(r.department)}</td>
                     <td>${escapeHtml(maskPhone(r.phone))}<br/>${escapeHtml(maskEmail(r.email))}</td>
-                    ${customFieldLabels.map(lbl => `<td>${escapeHtml((r.customValues && r.customValues[lbl]) || '-')}</td>`).join('')}
+                    ${customFieldLabels.map(lbl => `<td>${escapeHtml(getCustomFieldValue(r.customValues, lbl))}</td>`).join('')}
                     <td align="center">${stText}</td>
                   </tr>`;
               }).join('')}
@@ -4483,7 +5071,12 @@
 
       if (mode === 'hard') {
         APP_STATE.registrations.splice(idx, 1);
+        markIdAsDeleted(origId);
         writeLocalCacheOnly();
+        renderErasureSearchList();
+        updateErasureEventPreview();
+        renderAdminRegistrationsTable();
+        renderUserEventsGrid();
         if (chapFirebaseReady && chapRtdb) {
           try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).remove(); } catch (_) {}
         }
@@ -4491,16 +5084,16 @@
       } else {
         anonymizeRegistrationRecord(target);
         writeLocalCacheOnly();
+        renderErasureSearchList();
+        updateErasureEventPreview();
+        renderAdminRegistrationsTable();
+        renderUserEventsGrid();
         if (chapFirebaseReady && chapRtdb) {
           chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).set(target).catch(() => {});
         }
         logAudit('PDPA_ANONYMIZE_DATA', `ทำลายข้อมูลระบุตัวตน (Anonymize) รหัส ${origRef} (${origName}) คงสถิติยอดรวมไว้ เหตุผล: ${reason}`);
       }
 
-      renderErasureSearchList();
-      updateErasureEventPreview();
-      renderAdminRegistrationsTable();
-      renderUserEventsGrid();
       showToast(`ดำเนินการทำลายข้อมูลของ ${origRef} เรียบร้อยแล้ว`, 'success');
     }
 
@@ -4519,8 +5112,13 @@
       if (targetRegs.length === 0) { showToast('ไม่พบข้อมูลผู้ลงทะเบียนในกิจกรรมที่เลือก', 'info'); return; }
 
       if (mode === 'hard') {
+        targetRegs.forEach(item => markIdAsDeleted(item.id));
         APP_STATE.registrations = APP_STATE.registrations.filter(r => r.eventId !== evId);
         writeLocalCacheOnly();
+        populateErasureEventSelect();
+        renderErasureSearchList();
+        renderAdminRegistrationsTable();
+        renderUserEventsGrid();
         if (chapFirebaseReady && chapRtdb) {
           for (const item of targetRegs) {
             try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${item.id}`).remove(); } catch (_) {}
@@ -4535,14 +5133,14 @@
           }
         });
         writeLocalCacheOnly();
+        populateErasureEventSelect();
+        renderErasureSearchList();
+        renderAdminRegistrationsTable();
+        renderUserEventsGrid();
         logAudit('PDPA_BULK_ANONYMIZE', `ทำลายข้อมูลระบุตัวตนทั้งกิจกรรม "${ev ? ev.title : evId}" จำนวน ${targetRegs.length} รายการ โดยคงสถิติยอดรวมไว้ (เหตุผล: ${reason})`);
       }
 
       document.getElementById('erasure-admin-password').value = '';
-      populateErasureEventSelect();
-      renderErasureSearchList();
-      renderAdminRegistrationsTable();
-      renderUserEventsGrid();
       showToast(`ทำลายข้อมูลผู้ลงทะเบียนทั้งกิจกรรมจำนวน ${targetRegs.length} รายการเรียบร้อยแล้ว`, 'success');
     }
 
@@ -4636,6 +5234,7 @@
     });
 
     window.addEventListener('DOMContentLoaded', async () => {
+      updateSyncBadgeVisibility();
       loadStateFromStorage();
       refreshActiveViewsAfterDataUpdate();
 
