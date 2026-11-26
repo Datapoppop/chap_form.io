@@ -685,6 +685,12 @@
             <i class="fa-solid fa-clipboard-list"></i>
             <span>7. PDPA Audit Log</span>
           </button>
+
+          <button type="button" id="admin-tab-btn-google" data-admintab="google" onclick="switchAdminTab('google')"
+            class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 flex items-center gap-2">
+            <i class="fa-brands fa-google-drive"></i>
+            <span>8. เชื่อมต่อ Google Drive & Sheets</span>
+          </button>
         </div>
 
         <!-- ADMIN TAB 1: REGISTRATIONS -->
@@ -1109,7 +1115,7 @@
           </div>
         </div>
 
-        <!-- ADMIN TAB 4: PDPA ERASURE -->
+        <!-- ADMIN TAB 4: PDPA ERASURE (ลบข้อมูลหายไปจากระบบ + Google Drive & Sheets) -->
         <div id="admin-tab-erasure" class="hidden space-y-6 animate-fade">
           <div class="bg-white theme-card border border-rose-200 p-5 sm:p-6 shadow-sm space-y-3">
             <div class="flex items-start gap-3">
@@ -1121,13 +1127,13 @@
                   ทำลายข้อมูลส่วนบุคคล (PDPA Right to Erasure - มาตรา 33)
                 </h3>
                 <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  จัดการทำลายข้อมูลส่วนบุคคล รูปถ่าย และไฟล์เอกสารแนบของผู้ลงทะเบียนอย่างปลอดภัยเมื่อเสร็จสิ้นภารกิจ หรือเมื่อเจ้าของข้อมูลยื่นคำร้องขอใช้สิทธิให้ลบข้อมูลตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562
+                  เมื่อกดทำลายข้อมูล ระบบจะลบข้อมูลส่วนบุคคล รูปถ่าย และไฟล์เอกสารแนบออกจากระบบ ฐานข้อมูล Google Drive และ Google Sheets ทันที พร้อมบันทึกประวัติลงใน PDPA Audit Log
                 </p>
               </div>
             </div>
-            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-              <i class="fa-solid fa-triangle-exclamation text-amber-600 shrink-0"></i>
-              <span><strong>มาตรฐานความปลอดภัย PDPA:</strong> สามารถเลือกได้ทั้งแบบ <strong>ลบเฉพาะข้อมูลระบุตัวตน (Anonymize)</strong> เพื่อคงสถิติยอดรวมของกิจกรรม หรือ <strong>ลบรายการออกจากระบบถาวร (Hard Delete)</strong> โดยระบบจะบันทึกประวัติลงใน PDPA Audit Log ทุกครั้ง</span>
+            <div class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
+              <i class="fa-solid fa-triangle-exclamation text-rose-600 shrink-0"></i>
+              <span><strong>คำเตือน:</strong> การทำลายข้อมูลเป็นการลบรายการออกจากระบบ ฐานข้อมูล Google Drive และ Google Sheets ถาวร ไม่สามารถกู้คืนข้อมูลได้หลังจากกดยืนยัน</span>
             </div>
           </div>
 
@@ -1136,24 +1142,15 @@
               <div>
                 <h4 class="font-heading text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                   <span class="w-6 h-6 rounded-full bg-rose-100 text-rose-700 text-xs font-bold inline-flex items-center justify-center">1</span>
-                  <span>ทำลายข้อมูลรายบุคคล (ตามคำร้องของเจ้าของข้อมูล)</span>
+                  <span>ทำลายข้อมูลรายบุคคล (ลบออกจากระบบทันที)</span>
                 </h4>
-                <p class="text-xs text-slate-500 mt-1">ค้นหาด้วยรหัสอ้างอิง (REG-...) ชื่อ-นามสกุล หรือเบอร์โทรศัพท์ เลือกรูปแบบการทำลายข้อมูลและกดยืนยัน</p>
+                <p class="text-xs text-slate-500 mt-1">ค้นหาด้วยรหัสอ้างอิง (REG-...) ชื่อ-นามสกุล หรือเบอร์โทรศัพท์ แล้วกดทำลายข้อมูล</p>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">รูปแบบการทำลายข้อมูล</label>
-                  <select id="erasure-individual-mode" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white theme-focus">
-                    <option value="anonymize">ลบข้อมูลระบุตัวตน (คงยอดสถิติไว้)</option>
-                    <option value="hard">ลบรายการออกจากระบบถาวร (Hard Delete)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">เหตุผลการทำลายข้อมูล</label>
-                  <input type="text" id="erasure-individual-reason" value="เจ้าของข้อมูลยื่นคำร้องขอใช้สิทธิให้ลบข้อมูล (มาตรา 33)"
-                    class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs theme-focus" />
-                </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">เหตุผลการทำลายข้อมูล</label>
+                <input type="text" id="erasure-individual-reason" value="เจ้าของข้อมูลยื่นคำร้องขอใช้สิทธิให้ลบข้อมูล (มาตรา 33)"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs theme-focus" />
               </div>
 
               <div class="flex gap-2">
@@ -1173,37 +1170,28 @@
               <div>
                 <h4 class="font-heading text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                   <span class="w-6 h-6 rounded-full bg-rose-100 text-rose-700 text-xs font-bold inline-flex items-center justify-center">2</span>
-                  <span>ทำลายข้อมูลแบบกลุ่มตามกิจกรรม (Data Retention Cleanup)</span>
+                  <span>ทำลายข้อมูลผู้ลงทะเบียนทั้งกิจกรรม (ลบออกจากระบบทันที)</span>
                 </h4>
-                <p class="text-xs text-slate-500 mt-1">เลือกกิจกรรมที่สิ้นสุดภารกิจแล้ว เพื่อทำลายข้อมูลส่วนบุคคลของผู้สมัครทั้งหมดในกิจกรรมนั้นพร้อมยืนยันรหัสผ่าน</p>
+                <p class="text-xs text-slate-500 mt-1">เลือกกิจกรรมที่ต้องการลบข้อมูลผู้สมัครทั้งหมดออกจากระบบพร้อมยืนยันรหัสผ่าน Admin</p>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">เลือกกิจกรรม</label>
-                  <select id="erasure-event-select" onchange="updateErasureEventPreview()"
-                    class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white theme-focus"></select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">รูปแบบการทำลายข้อมูล</label>
-                  <select id="erasure-bulk-mode" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white theme-focus">
-                    <option value="anonymize">ลบข้อมูลระบุตัวตน (คงสถิติยอดรวม)</option>
-                    <option value="hard">ลบรายการทั้งหมดถาวร (Hard Delete)</option>
-                  </select>
-                </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">เลือกกิจกรรม</label>
+                <select id="erasure-event-select" onchange="updateErasureEventPreview()"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white theme-focus"></select>
               </div>
 
               <div id="erasure-event-summary" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1"></div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">เหตุผลการทำลายข้อมูล (บันทึกลง Audit Log) <span class="text-rose-500">*</span></label>
+                <label class="block text-xs font-bold text-slate-700 mb-1">เหตุผลการทำลายข้อมูล <span class="text-rose-500">*</span></label>
                 <input type="text" id="erasure-reason-input"
-                  value="เสร็จสิ้นภารกิจและครบกำหนดระยะเวลาจัดเก็บข้อมูลส่วนบุคคลตามนโยบาย PDPA"
+                  value="เสร็จสิ้นภารกิจและทำลายข้อมูลส่วนบุคคลตามนโยบาย PDPA"
                   class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs theme-focus" />
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">ยืนยันรหัสผ่านผู้ดูแลระบบก่อนทำลายข้อมูล <span class="text-rose-500">*</span></label>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ยืนยันรหัสผ่านผู้ดูแลระบบ <span class="text-rose-500">*</span></label>
                 <input type="password" id="erasure-admin-password" placeholder="กรอกรหัสผ่าน Admin เพื่อยืนยัน"
                   class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm theme-focus" />
               </div>
@@ -1211,7 +1199,7 @@
               <button type="button" onclick="executeBulkEventErasure()"
                 class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-bold shadow-sm flex items-center justify-center gap-2">
                 <i class="fa-solid fa-trash-can"></i>
-                <span>ยืนยันทำลายข้อมูลผู้ลงทะเบียนทั้งกิจกรรม</span>
+                <span>ยืนยันลบข้อมูลผู้ลงทะเบียนทั้งกิจกรรมออกจากระบบ</span>
               </button>
             </div>
           </div>
@@ -1413,6 +1401,67 @@
           </div>
         </div>
 
+        <!-- ADMIN TAB 8: GOOGLE DRIVE & GOOGLE SHEETS INTEGRATION -->
+        <div id="admin-tab-google" class="hidden space-y-6 animate-fade">
+          <div class="bg-white theme-card border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl theme-badge-primary flex items-center justify-center shrink-0">
+                  <i class="fa-brands fa-google-drive text-xl"></i>
+                </div>
+                <div>
+                  <h3 class="font-heading text-base sm:text-lg font-bold text-slate-900">เชื่อมต่อจัดเก็บไฟล์ใน Google Drive และบันทึก Google Sheets</h3>
+                  <p class="text-xs text-slate-500">สร้างโฟลเดอร์แยกตาม <strong>ชื่องาน ➔ ตำแหน่งผู้สมัคร</strong> และเปลี่ยนชื่อไฟล์รูปถ่าย/ใบอนุญาตเป็น <strong>ชื่อผู้ลงทะเบียน_รหัส</strong> อัตโนมัติ</p>
+                </div>
+              </div>
+              <a href="https://drive.google.com/drive/folders/15x4u42LV1mn40qvopwstQnK_hjemKT3M?usp=sharing" target="_blank" rel="noopener noreferrer"
+                class="px-4 py-2 rounded-xl theme-btn-secondary text-xs font-bold flex items-center gap-1.5 self-start sm:self-center shadow-sm">
+                <i class="fa-solid fa-folder-open"></i>
+                <span>เปิดโฟลเดอร์ Google Drive</span>
+              </a>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1.5">
+              <p class="font-bold text-slate-900">โครงสร้างการจัดเก็บอัตโนมัติใน Google Drive:</p>
+              <p class="font-mono text-[11px] bg-white p-2.5 rounded-lg border border-slate-200 leading-relaxed">
+                📁 โฟลเดอร์หลัก (15x4u42LV1mn40qvopwstQnK_hjemKT3M)<br/>
+                &nbsp;&nbsp;├── 📊 ฐานข้อมูลลงทะเบียนกิจกรรม_ฝ่ายศาสนกิจ (Google Sheets แยกแท็บตามชื่องาน)<br/>
+                &nbsp;&nbsp;└── 📁 [ชื่องานตามที่ได้กำหนด]<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 📁 [ตำแหน่งผู้สมัคร]<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── 🖼️ รูปถ่าย_[ชื่อผู้ลงทะเบียน]_[รหัสผู้ลงทะเบียน].jpg<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 📄 ใบประกอบใบอนุญาต_[ชื่อผู้ลงทะเบียน]_[รหัสผู้ลงทะเบียน].pdf
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <label for="gas-webapp-url-input" class="block text-xs font-bold text-slate-700">
+                Google Apps Script Web App URL (สำหรับเชื่อมต่อเขียนไฟล์ลง Drive และ Google Sheets)
+              </label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input type="url" id="gas-webapp-url-input"
+                  placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                  class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm theme-focus" />
+                <button type="button" onclick="saveGasWebAppUrl()"
+                  class="px-5 py-2.5 rounded-xl theme-btn-primary text-xs font-bold shrink-0 shadow-sm">
+                  <i class="fa-solid fa-floppy-disk mr-1"></i> บันทึก URL เชื่อมต่อ
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-500">
+                เมื่อบันทึก URL แล้ว ระบบจะซิงค์ข้อมูลการลงทะเบียนใหม่ การแก้ไขข้อมูล/ไฟล์แนบ และการทำลายข้อมูลไปยัง Google Drive และ Google Sheets อัตโนมัติ (บันทึกค่าลง Firebase เพื่อใช้งานร่วมกันทุกเครื่อง)
+              </p>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <span id="gas-connection-status" class="text-xs font-semibold text-slate-600">สถานะ: รอระบุ Web App URL</span>
+              <button type="button" onclick="syncAllRegistrationsToGoogleDriveAndSheets()"
+                class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>ซิงค์ข้อมูลทั้งหมดขึ้น Drive & Google Sheets ตอนนี้</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
   </main>
@@ -1488,7 +1537,7 @@
     </div>
   </div>
 
-  <!-- Modal แก้ไขข้อมูลการลงทะเบียนของผู้สมัคร (ต้องไม่เกิน 2 สัปดาห์ก่อนวันงาน) -->
+  <!-- Modal แก้ไขข้อมูลการลงทะเบียนของผู้สมัคร (ครบทุกฟิลด์ + รูปถ่าย + เอกสารแนบ) -->
   <div id="modal-edit-registration" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fade">
       <div class="px-6 py-4 theme-header flex items-center justify-between">
@@ -1524,6 +1573,33 @@
           <label class="block font-bold text-slate-700 mb-1">อีเมลติดต่อ</label>
           <input type="email" id="edit-reg-email" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 theme-focus" />
         </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="font-bold text-slate-700 text-xs sm:text-sm">รูปภาพประจำตัว</span>
+            <label class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer">
+              <i class="fa-solid fa-image mr-1"></i> เปลี่ยนรูปถ่าย
+              <input type="file" id="edit-reg-photo-input" accept="image/*" class="hidden" onchange="handleEditPhotoUpload(event)" />
+            </label>
+          </div>
+          <div class="flex items-center gap-3">
+            <img id="edit-reg-photo-preview" src="" alt="รูปประจำตัว" class="hidden w-16 h-16 rounded-xl object-cover border border-slate-300" />
+            <span id="edit-reg-photo-empty" class="text-xs text-slate-400">ไม่มีรูปภาพประจำตัว</span>
+            <button type="button" id="btn-edit-clear-photo" onclick="clearEditRegPhoto()" class="hidden text-xs font-bold text-rose-600 hover:underline">ลบรูป</button>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="font-bold text-slate-700 text-xs sm:text-sm">เอกสารแนบ</span>
+            <label class="px-3 py-1.5 rounded-lg theme-btn-primary text-xs font-bold cursor-pointer">
+              <i class="fa-solid fa-paperclip mr-1"></i> เพิ่มไฟล์
+              <input type="file" id="edit-reg-docs-input" accept="image/*,.pdf" multiple class="hidden" onchange="handleEditDocsUpload(event)" />
+            </label>
+          </div>
+          <div id="edit-reg-docs-list" class="space-y-1.5"></div>
+        </div>
+
         <div id="edit-reg-custom-fields" class="space-y-2.5"></div>
         <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
           <button type="button" onclick="closeModal('modal-edit-registration')"
@@ -1684,7 +1760,7 @@
     };
 
     const RTDB_ROOT_PATH = 'bcc_chaplain_registration_v3';
-    const DATA_VERSION = '2026-11-26-v12-reg-close-date-prompt';
+    const DATA_VERSION = '2026-11-26-v15-gdrive-sheets-sync';
 
     let chapFirebaseReady = false;
     let chapRtdb = null;
@@ -1714,7 +1790,8 @@
       DEPARTMENTS: 'bcc_chaplain_departments_v3',
       REGISTRATIONS: 'bcc_chaplain_registrations_v3',
       AUDIT_LOGS: 'bcc_chaplain_audit_v3',
-      THEME: 'bcc_chaplain_theme_v3'
+      THEME: 'bcc_chaplain_theme_v3',
+      GAS_URL: 'bcc_chaplain_gas_webapp_url_v1'
     };
 
     const DEFAULT_FIELD_REQS = {
@@ -1730,6 +1807,7 @@
       departments: [],
       registrations: [],
       auditLogs: [],
+      gasWebAppUrl: '',
       theme: {
         primary: '#0f4c3a',
         secondary: '#0e7490',
@@ -1757,11 +1835,13 @@
     };
 
     const recentlyDeletedIds = new Set();
+    let editRegTempPhoto = '';
+    let editRegTempDocs = [];
 
     function markIdAsDeleted(id) {
       if (!id) return;
       recentlyDeletedIds.add(id);
-      setTimeout(() => recentlyDeletedIds.delete(id), 4000);
+      setTimeout(() => recentlyDeletedIds.delete(id), 5000);
     }
 
     // แปลงชื่อ Key ให้ปลอดภัยสำหรับ Firebase Realtime Database (ห้ามมี . $ # [ ] /)
@@ -1785,8 +1865,119 @@
       return '-';
     }
 
+    // =========================================================================
+    // GOOGLE DRIVE & GOOGLE SHEETS SYNC BRIDGE (VIA APPS SCRIPT WEB APP)
+    // =========================================================================
+    function updateGasStatusUI() {
+      const input = document.getElementById('gas-webapp-url-input');
+      const statusEl = document.getElementById('gas-connection-status');
+      if (input && APP_STATE.gasWebAppUrl) {
+        input.value = APP_STATE.gasWebAppUrl;
+      }
+      if (statusEl) {
+        if (APP_STATE.gasWebAppUrl) {
+          statusEl.innerHTML = `<span class="text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i> เชื่อมต่อ Web App URL แล้ว (พร้อมซิงค์ Drive & Google Sheets อัตโนมัติ)</span>`;
+        } else {
+          statusEl.innerHTML = `<span class="text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i> ยังไม่ได้ระบุ Web App URL</span>`;
+        }
+      }
+    }
+
+    function saveGasWebAppUrl() {
+      const val = (document.getElementById('gas-webapp-url-input')?.value || '').trim();
+      APP_STATE.gasWebAppUrl = val;
+      try {
+        localStorage.setItem(STORAGE_KEYS.GAS_URL, val);
+      } catch (_) {}
+      if (chapFirebaseReady && chapRtdb) {
+        chapRtdb.ref(`${RTDB_ROOT_PATH}/gasWebAppUrl`).set(val).catch(() => {});
+      }
+      updateGasStatusUI();
+      logAudit('UPDATE_GOOGLE_DRIVE_URL', val ? 'บันทึก URL เชื่อมต่อ Google Drive & Sheets' : 'ล้าง URL เชื่อมต่อ Google Drive & Sheets');
+      showToast('บันทึกการตั้งค่า Google Drive & Sheets เรียบร้อยแล้ว', 'success');
+    }
+
+    async function pushRegistrationToGoogleDriveAndSheets(reg, ev, previousPositionName = '') {
+      if (!APP_STATE.gasWebAppUrl || !reg || !ev) return null;
+      try {
+        const customFieldLabels = Array.isArray(ev.customFields) ? ev.customFields.map(cf => cf.label) : [];
+        const body = JSON.stringify({
+          action: 'sync_registration',
+          eventTitle: ev.title,
+          positionName: reg.positionName,
+          previousPositionName: previousPositionName || '',
+          customFieldLabels,
+          registration: reg
+        });
+
+        const res = await fetch(APP_STATE.gasWebAppUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body
+        });
+        const data = await res.json().catch(() => null);
+        if (data && data.ok) {
+          if (data.photoDriveUrl) reg.photoDriveUrl = data.photoDriveUrl;
+          if (data.docsDriveUrl) reg.docsDriveUrl = data.docsDriveUrl;
+          if (data.sheetUrl) reg.sheetUrl = data.sheetUrl;
+          writeLocalCacheOnly();
+          if (chapFirebaseReady && chapRtdb) {
+            chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${reg.id}`).update({
+              photoDriveUrl: reg.photoDriveUrl || '',
+              docsDriveUrl: reg.docsDriveUrl || '',
+              sheetUrl: reg.sheetUrl || ''
+            }).catch(() => {});
+          }
+        }
+        return data;
+      } catch (err) {
+        console.warn('Google Drive/Sheets sync warning:', err);
+        return null;
+      }
+    }
+
+    async function deleteRegistrationFromGoogleDriveAndSheets(reg, ev) {
+      if (!APP_STATE.gasWebAppUrl || !reg) return;
+      try {
+        const body = JSON.stringify({
+          action: 'delete_registration',
+          eventTitle: ev ? ev.title : '',
+          positionName: reg.positionName || '',
+          refCode: reg.refCode || ''
+        });
+        await fetch(APP_STATE.gasWebAppUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body
+        });
+      } catch (err) {
+        console.warn('Google Drive/Sheets delete warning:', err);
+      }
+    }
+
+    async function syncAllRegistrationsToGoogleDriveAndSheets() {
+      if (!APP_STATE.gasWebAppUrl) {
+        showToast('กรุณากรอก Google Apps Script Web App URL และกดบันทึกก่อน', 'warning');
+        return;
+      }
+      if (APP_STATE.registrations.length === 0) {
+        showToast('ยังไม่มีข้อมูลผู้ลงทะเบียนในระบบ', 'info');
+        return;
+      }
+      showToast(`กำลังซิงค์ข้อมูล ${APP_STATE.registrations.length} รายการขึ้น Google Drive & Google Sheets...`, 'info');
+      let successCount = 0;
+      for (const reg of APP_STATE.registrations) {
+        const ev = APP_STATE.events.find(e => e.id === reg.eventId);
+        if (!ev) continue;
+        const result = await pushRegistrationToGoogleDriveAndSheets(reg, ev);
+        if (result && result.ok) successCount++;
+      }
+      showToast(`ซิงค์ขึ้น Google Drive & Sheets สำเร็จ ${successCount}/${APP_STATE.registrations.length} รายการ`, 'success');
+    }
+
     function clearLocalCacheKeys() {
       Object.values(STORAGE_KEYS).forEach(k => {
+        if (k === STORAGE_KEYS.GAS_URL) return;
         try { localStorage.removeItem(k); } catch (_) {}
       });
     }
@@ -1859,24 +2050,34 @@
     function isEventRegistrationOpen(ev) {
       if (!ev || ev.status !== 'open') return false;
       if (ev.regCloseDate) {
-        const todayIso = getTodayIsoDate();
-        if (todayIso >= String(ev.regCloseDate)) {
+        if (getTodayIsoDate() >= String(ev.regCloseDate)) {
           return false;
         }
       }
       return true;
     }
 
-    // ตรวจสอบว่าผู้ใช้งานยังสามารถแก้ไขข้อมูลได้หรือไม่ (ต้องห่างจากวันเริ่มงานมากกว่า 14 วัน / 2 สัปดาห์)
-    function canUserEditRegistration(ev) {
-      if (!ev || !ev.startDate) return false;
+    function getEditLockReason(ev) {
+      if (!ev) return 'ไม่พบข้อมูลกิจกรรม';
+      if (ev.status !== 'open') return 'กิจกรรมนี้ปิดรับลงทะเบียนแล้ว';
+      if (ev.regCloseDate && getTodayIsoDate() >= String(ev.regCloseDate)) {
+        return `หมดเขตรับสมัครและปิดแก้ไขข้อมูลแล้ว (วันที่ ${formatThaiDate(ev.regCloseDate)})`;
+      }
+      if (!ev.startDate) return 'ไม่พบวันเริ่มจัดงาน';
       const startParts = String(ev.startDate).split('-').map(n => parseInt(n, 10));
-      if (startParts.length !== 3 || startParts.some(Number.isNaN)) return false;
+      if (startParts.length !== 3 || startParts.some(Number.isNaN)) return 'รูปแบบวันเริ่มจัดงานไม่ถูกต้อง';
       const eventStart = new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0);
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
       const diffDays = (eventStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24);
-      return diffDays > 14;
+      if (diffDays <= 14) {
+        return 'ปิดการแก้ไขข้อมูลแล้ว (ต้องแก้ไขล่วงหน้าเกิน 2 สัปดาห์ก่อนวันงาน)';
+      }
+      return '';
+    }
+
+    function canUserEditRegistration(ev) {
+      return getEditLockReason(ev) === '';
     }
 
     function maskPhone(phone) {
@@ -2072,6 +2273,9 @@
         localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(APP_STATE.registrations));
         localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(APP_STATE.auditLogs));
         localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(APP_STATE.theme));
+        if (APP_STATE.gasWebAppUrl) {
+          localStorage.setItem(STORAGE_KEYS.GAS_URL, APP_STATE.gasWebAppUrl);
+        }
       } catch (e) {
         console.warn('Storage save warning:', e);
       }
@@ -2209,6 +2413,7 @@
           departments: arrayToMapById(APP_STATE.departments, 'dept'),
           events: arrayToMapById(APP_STATE.events, 'ev'),
           theme: APP_STATE.theme,
+          gasWebAppUrl: APP_STATE.gasWebAppUrl || '',
           dataVersion: DATA_VERSION,
           updatedAt: Date.now()
         }), 3500);
@@ -2230,7 +2435,8 @@
       APP_STATE.isApplyingRemoteSnapshot = true;
       try {
         if (raw.departments) {
-          const depts = Array.isArray(raw.departments) ? raw.departments : mapToArray(raw.departments);
+          const depts = (Array.isArray(raw.departments) ? raw.departments : mapToArray(raw.departments))
+            .filter(d => !recentlyDeletedIds.has(d.id));
           APP_STATE.departments = depts;
         } else {
           APP_STATE.departments = [];
@@ -2266,6 +2472,10 @@
           APP_STATE.auditLogs = raw.auditLogs;
         } else {
           APP_STATE.auditLogs = [];
+        }
+
+        if (typeof raw.gasWebAppUrl === 'string' && raw.gasWebAppUrl.trim()) {
+          APP_STATE.gasWebAppUrl = raw.gasWebAppUrl.trim();
         }
 
         if (raw.theme && typeof raw.theme === 'object') {
@@ -2403,8 +2613,10 @@
         const savedRegs = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTRATIONS) || 'null');
         const savedLogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS) || 'null');
         const savedTheme = JSON.parse(localStorage.getItem(STORAGE_KEYS.THEME) || 'null');
+        const savedGasUrl = localStorage.getItem(STORAGE_KEYS.GAS_URL) || '';
         const seed = getSeedData();
 
+        if (savedGasUrl) APP_STATE.gasWebAppUrl = savedGasUrl;
         if (savedTheme) APP_STATE.theme = { ...APP_STATE.theme, ...savedTheme };
         APP_STATE.departments = Array.isArray(savedDepts) ? savedDepts : seed.departments;
         APP_STATE.events = Array.isArray(savedEvents)
@@ -2471,6 +2683,7 @@
         populateErasureEventSelect();
         renderErasureSearchList();
         renderAuditLogs();
+        updateGasStatusUI();
       }
     }
 
@@ -2499,7 +2712,7 @@
     }
 
     function switchAdminTab(tabName) {
-      const tabs = ['registrations', 'events', 'reports', 'erasure', 'theme', 'departments', 'audit'];
+      const tabs = ['registrations', 'events', 'reports', 'erasure', 'theme', 'departments', 'audit', 'google'];
       tabs.forEach(t => {
         const panel = document.getElementById('admin-tab-' + t);
         const btn = document.getElementById('admin-tab-btn-' + t);
@@ -2520,6 +2733,7 @@
       if (tabName === 'theme') syncThemeInputsFromState();
       if (tabName === 'departments') renderAdminDepartmentsList();
       if (tabName === 'audit') renderAuditLogs();
+      if (tabName === 'google') updateGasStatusUI();
     }
 
     // =========================================================================
@@ -2947,6 +3161,8 @@
         }
         if (!isEventRegistrationOpen(ev)) {
           showToast('กิจกรรมนี้ปิดรับลงทะเบียนแล้ว', 'error');
+          renderUserEventsGrid();
+          clearSelectedEvent();
           return;
         }
 
@@ -3019,11 +3235,20 @@
         setRegistrationSubmitBusy(true);
 
         const refCode = 'REG-' + Math.floor(100000 + Math.random() * 900000);
-        const safeDocs = (APP_STATE.uploadedDocs || []).map(d => ({
-          name: String(d.name || 'document'),
-          type: String(d.type || 'application/octet-stream'),
-          dataUrl: String(d.dataUrl || '')
-        }));
+        const applicantFilePrefix = `${fullName}_${refCode}`.replace(/[\\\/:*?"<>|]/g, '_');
+
+        // เปลี่ยนชื่อไฟล์เอกสารแนบเป็นชื่อผู้ลงทะเบียนและรหัสผู้ลงทะเบียน
+        const safeDocs = (APP_STATE.uploadedDocs || []).map((d, idx) => {
+          const origName = String(d.name || 'document.pdf');
+          const extMatch = origName.match(/(\.[a-z0-9]+)$/i);
+          const ext = extMatch ? extMatch[1] : (String(d.type).includes('pdf') ? '.pdf' : '.jpg');
+          const suffix = APP_STATE.uploadedDocs.length > 1 ? `_${idx + 1}` : '';
+          return {
+            name: `ใบประกอบใบอนุญาต_${applicantFilePrefix}${suffix}${ext}`,
+            type: String(d.type || 'application/octet-stream'),
+            dataUrl: String(d.dataUrl || '')
+          };
+        });
 
         const newReg = {
           id: generateId('reg'),
@@ -3036,15 +3261,21 @@
           phone: phone || '-',
           email: email || '-',
           customValues,
+          photoFileName: APP_STATE.photoDataUrl ? `รูปถ่าย_${applicantFilePrefix}.jpg` : '',
           photoDataUrl: String(APP_STATE.photoDataUrl || ''),
           documents: safeDocs,
           status: 'pending',
           rejectReason: '',
+          editCount: 0,
+          lastEditedAt: '',
           submittedAt: new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
         };
 
         APP_STATE.registrations.unshift(newReg);
         writeLocalCacheOnly();
+
+        // ซิงค์รูปถ่าย/ใบอนุญาตเข้าโฟลเดอร์ Google Drive (ชื่องาน -> ตำแหน่งผู้สมัคร) และบันทึกลง Google Sheets
+        pushRegistrationToGoogleDriveAndSheets(newReg, ev);
 
         if (chapFirebaseReady && chapRtdb) {
           setSyncBadge('syncing', 'กำลังซิงค์...');
@@ -3224,7 +3455,7 @@
     }
 
     // =========================================================================
-    // STATUS CHECK & USER EDIT (WITHIN > 2 WEEKS BEFORE EVENT START)
+    // STATUS CHECK & USER FULL EDIT (WITHIN > 2 WEEKS & BEFORE REG CLOSE)
     // =========================================================================
     function handleStatusSearch(event) {
       event.preventDefault();
@@ -3236,19 +3467,113 @@
       renderStatusSearchResults(query);
     }
 
+    function renderEditRegDocsList() {
+      const el = document.getElementById('edit-reg-docs-list');
+      if (!el) return;
+      if (!editRegTempDocs.length) {
+        el.innerHTML = `<p class="text-xs text-slate-400">ไม่มีเอกสารแนบ</p>`;
+        return;
+      }
+      el.innerHTML = editRegTempDocs.map((d, i) => `
+        <div class="px-3 py-2 rounded-lg bg-white border border-slate-200 flex items-center justify-between gap-2 text-xs">
+          <span class="font-semibold text-slate-700 truncate">${escapeHtml(d.name)}</span>
+          <button type="button" onclick="removeEditRegDoc(${i})" class="text-rose-600 hover:text-rose-800"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+      `).join('');
+    }
+
+    function removeEditRegDoc(idx) {
+      editRegTempDocs.splice(idx, 1);
+      renderEditRegDocsList();
+    }
+
+    function clearEditRegPhoto() {
+      editRegTempPhoto = '';
+      syncEditRegPhotoUI();
+    }
+
+    function syncEditRegPhotoUI() {
+      const img = document.getElementById('edit-reg-photo-preview');
+      const empty = document.getElementById('edit-reg-photo-empty');
+      const clearBtn = document.getElementById('btn-edit-clear-photo');
+      if (!img || !empty || !clearBtn) return;
+      if (editRegTempPhoto) {
+        img.src = editRegTempPhoto;
+        img.classList.remove('hidden');
+        empty.classList.add('hidden');
+        clearBtn.classList.remove('hidden');
+      } else {
+        img.src = '';
+        img.classList.add('hidden');
+        empty.classList.remove('hidden');
+        clearBtn.classList.add('hidden');
+      }
+    }
+
+    function handleEditPhotoUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          editRegTempPhoto = compressImageToDataUrl(img, img.width, img.height, 480, 0.6);
+          syncEditRegPhotoUI();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function handleEditDocsUpload(event) {
+      const files = Array.from(event.target.files || []);
+      files.forEach(file => {
+        if (file.size > 4 * 1024 * 1024) {
+          showToast(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 4MB`, 'warning');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (file.type && file.type.startsWith('image/')) {
+            const img = new Image();
+            img.onload = () => {
+              editRegTempDocs.push({
+                name: file.name,
+                type: 'image/jpeg',
+                dataUrl: compressImageToDataUrl(img, img.width, img.height, 800, 0.65)
+              });
+              renderEditRegDocsList();
+            };
+            img.src = e.target.result;
+          } else {
+            editRegTempDocs.push({
+              name: file.name,
+              type: file.type || 'application/octet-stream',
+              dataUrl: e.target.result
+            });
+            renderEditRegDocsList();
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      event.target.value = '';
+    }
+
     function openUserEditRegistrationModal(regId) {
       const r = APP_STATE.registrations.find(item => item.id === regId);
       if (!r) return;
       const ev = APP_STATE.events.find(e => e.id === r.eventId);
-      if (!ev) {
-        showToast('ไม่พบข้อมูลกิจกรรมที่เกี่ยวข้อง', 'error');
+      const lockReason = getEditLockReason(ev);
+      if (lockReason) {
+        showToast(lockReason, 'warning');
         return;
       }
 
-      if (!canUserEditRegistration(ev)) {
-        showToast('ไม่สามารถแก้ไขข้อมูลได้ เนื่องจากเหลือเวลาน้อยกว่าหรือเท่ากับ 2 สัปดาห์ก่อนวันงาน', 'warning');
-        return;
-      }
+      editRegTempPhoto = r.photoDataUrl || '';
+      editRegTempDocs = Array.isArray(r.documents) ? JSON.parse(JSON.stringify(r.documents)) : [];
+      syncEditRegPhotoUI();
+      renderEditRegDocsList();
 
       document.getElementById('edit-reg-id').value = r.id;
       document.getElementById('edit-reg-subtitle').textContent = `รหัสอ้างอิง: ${r.refCode} • วันเริ่มงาน: ${formatThaiDate(ev.startDate)}`;
@@ -3304,8 +3629,9 @@
       const r = APP_STATE.registrations.find(item => item.id === regId);
       if (!r) return;
       const ev = APP_STATE.events.find(e => e.id === r.eventId);
-      if (!ev || !canUserEditRegistration(ev)) {
-        showToast('เกินกำหนดแก้ไขข้อมูลล่วงหน้า (ต้องไม่เกิน 2 สัปดาห์ก่อนวันงาน)', 'error');
+      const lockReason = getEditLockReason(ev);
+      if (lockReason) {
+        showToast(lockReason, 'error');
         closeModal('modal-edit-registration');
         return;
       }
@@ -3316,6 +3642,7 @@
         return;
       }
 
+      const prevPosName = r.positionName;
       const posId = document.getElementById('edit-reg-position').value;
       const pos = (ev.positions || []).find(p => p.id === posId);
       const department = document.getElementById('edit-reg-department').value.trim();
@@ -3329,6 +3656,22 @@
         nextCustomValues[sanitizeRtdbKey(lbl)] = val || '-';
       });
 
+      const nextEditCount = (Number(r.editCount) || 0) + 1;
+      const nowStr = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+      const applicantFilePrefix = `${fullName}_${r.refCode}`.replace(/[\\\/:*?"<>|]/g, '_');
+
+      const renamedDocs = editRegTempDocs.map((d, idx) => {
+        const origName = String(d.name || 'document.pdf');
+        const extMatch = origName.match(/(\.[a-z0-9]+)$/i);
+        const ext = extMatch ? extMatch[1] : (String(d.type).includes('pdf') ? '.pdf' : '.jpg');
+        const suffix = editRegTempDocs.length > 1 ? `_${idx + 1}` : '';
+        return {
+          name: `ใบประกอบใบอนุญาต_${applicantFilePrefix}${suffix}${ext}`,
+          type: String(d.type || 'application/octet-stream'),
+          dataUrl: String(d.dataUrl || '')
+        };
+      });
+
       r.fullName = fullName;
       if (pos) {
         r.positionId = pos.id;
@@ -3338,8 +3681,17 @@
       r.phone = phone || '-';
       r.email = email || '-';
       r.customValues = nextCustomValues;
+      r.photoFileName = editRegTempPhoto ? `รูปถ่าย_${applicantFilePrefix}.jpg` : '';
+      r.photoDataUrl = editRegTempPhoto || '';
+      r.documents = renamedDocs;
+      r.editCount = nextEditCount;
+      r.lastEditedAt = nowStr;
 
       writeLocalCacheOnly();
+
+      // อัปเดตไฟล์ใหม่ใน Google Drive (ลบไฟล์เก่าและบันทึกไฟล์ชื่อใหม่) และอัปเดตแถวใน Google Sheets
+      pushRegistrationToGoogleDriveAndSheets(r, ev, prevPosName);
+
       if (chapFirebaseReady && chapRtdb) {
         chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${r.id}`).update({
           fullName: r.fullName,
@@ -3348,15 +3700,23 @@
           department: r.department,
           phone: r.phone,
           email: r.email,
-          customValues: r.customValues
+          customValues: r.customValues,
+          photoFileName: r.photoFileName,
+          photoDataUrl: r.photoDataUrl,
+          documents: r.documents,
+          editCount: r.editCount,
+          lastEditedAt: r.lastEditedAt
+        }).then(() => {
+          setTimeout(() => uploadRegistrationAssetsInBackground(r), 200);
         }).catch((err) => console.warn('Update reg edit error:', err));
       }
 
-      logAudit('USER_EDIT_REGISTRATION', `ผู้สมัครแก้ไขข้อมูลรหัส ${r.refCode} (${r.fullName})`);
+      logAudit('USER_EDIT_REGISTRATION', `ผู้สมัครแก้ไขข้อมูลรหัส ${r.refCode} (ครั้งที่ ${nextEditCount} เมื่อ ${nowStr})`);
       closeModal('modal-edit-registration');
       const q = document.getElementById('status-search-input')?.value.trim() || r.refCode;
       renderStatusSearchResults(q);
-      showToast('บันทึกการแก้ไขข้อมูลเรียบร้อยแล้ว', 'success');
+      if (APP_STATE.isAdminAuthenticated) renderAdminRegistrationsTable();
+      showToast(`บันทึกการแก้ไขข้อมูล (ครั้งที่ ${nextEditCount}) เรียบร้อยแล้ว`, 'success');
     }
 
     function renderStatusSearchResults(query) {
@@ -3379,7 +3739,8 @@
       container.innerHTML = matches.map(r => {
         const ev = APP_STATE.events.find(e => e.id === r.eventId);
         const dept = ev ? getDepartmentById(ev.departmentId) : null;
-        const allowEdit = ev ? canUserEditRegistration(ev) : false;
+        const lockReason = ev ? getEditLockReason(ev) : 'ไม่พบข้อมูลกิจกรรม';
+        const allowEdit = lockReason === '';
         const statusBadge = r.status === 'approved'
           ? '<span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">อนุมัติแล้ว (Accepted)</span>'
           : r.status === 'rejected'
@@ -3420,8 +3781,8 @@
               </div>` : ''}
 
             <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-              <span class="text-[11px] ${allowEdit ? 'text-emerald-700 font-semibold' : 'text-slate-400'}">
-                ${allowEdit ? 'แก้ไขข้อมูลได้ (ล่วงหน้าเกิน 2 สัปดาห์ก่อนวันงาน)' : 'ปิดการแก้ไขข้อมูลแล้ว (ภายใน 2 สัปดาห์ก่อนวันงาน)'}
+              <span class="text-[11px] ${allowEdit ? 'text-emerald-700 font-semibold' : 'text-rose-600 font-medium'}">
+                ${allowEdit ? 'แก้ไขข้อมูลได้ (ล่วงหน้าเกิน 2 สัปดาห์ก่อนวันงาน)' : escapeHtml(lockReason)}
               </span>
               <div class="flex items-center gap-2 flex-wrap">
                 ${allowEdit ? `
@@ -3622,6 +3983,7 @@
                 <div>
                   <p class="font-bold text-slate-900">${escapeHtml(r.fullName)}</p>
                   <p class="text-[11px] text-slate-500">${escapeHtml(r.refCode)} • ${escapeHtml(r.department)}</p>
+                  ${r.editCount ? `<p class="text-[11px] text-amber-700 font-semibold">แก้ไขครั้งที่ ${r.editCount} • เมื่อ ${escapeHtml(r.lastEditedAt || '-')}</p>` : ''}
                 </div>
               </div>
             </td>
@@ -3691,6 +4053,8 @@
             <p><strong>ตำแหน่งที่สมัคร:</strong> <span class="theme-text-primary font-bold">${escapeHtml(r.positionName)}</span></p>
             <p><strong>แผนก / สังกัด:</strong> ${escapeHtml(r.department)}</p>
             <p><strong>เบอร์โทร:</strong> ${escapeHtml(maskPhone(r.phone))} | <strong>อีเมล:</strong> ${escapeHtml(maskEmail(r.email))}</p>
+            ${r.editCount ? `<p class="text-xs text-amber-700 font-bold pt-0.5">แก้ไขข้อมูลครั้งที่ ${r.editCount} • ล่าสุดเมื่อ ${escapeHtml(r.lastEditedAt || '-')}</p>` : ''}
+            ${r.photoDriveUrl ? `<p class="text-xs pt-0.5"><a href="${escapeHtml(r.photoDriveUrl)}" target="_blank" rel="noopener noreferrer" class="underline theme-text-secondary font-bold"><i class="fa-brands fa-google-drive mr-1"></i> ดูรูปถ่ายใน Google Drive</a></p>` : ''}
           </div>
         </div>
 
@@ -3743,6 +4107,7 @@
       r.status = 'approved';
       r.rejectReason = '';
       writeLocalCacheOnly();
+      if (ev) pushRegistrationToGoogleDriveAndSheets(r, ev);
       if (chapFirebaseReady && chapRtdb) {
         chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${r.id}`).update({ status: 'approved', rejectReason: '' }).catch(() => {});
       }
@@ -3871,9 +4236,11 @@
       }
       const r = APP_STATE.registrations.find(item => item.id === regId);
       if (!r) return;
+      const ev = APP_STATE.events.find(e => e.id === r.eventId);
       r.status = 'rejected';
       r.rejectReason = reason;
       writeLocalCacheOnly();
+      if (ev) pushRegistrationToGoogleDriveAndSheets(r, ev);
       if (chapFirebaseReady && chapRtdb) {
         chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${r.id}`).update({ status: 'rejected', rejectReason: reason }).catch(() => {});
       }
@@ -3887,11 +4254,14 @@
       const idx = APP_STATE.registrations.findIndex(r => r.id === regId);
       if (idx === -1) return;
       const removed = APP_STATE.registrations.splice(idx, 1)[0];
+      const ev = APP_STATE.events.find(e => e.id === removed.eventId);
       markIdAsDeleted(removed.id);
       writeLocalCacheOnly();
       renderAdminRegistrationsTable();
       renderUserEventsGrid();
       closeModal('modal-review-reg');
+
+      deleteRegistrationFromGoogleDriveAndSheets(removed, ev);
 
       if (chapFirebaseReady && chapRtdb) {
         try {
@@ -3901,8 +4271,8 @@
           showToast('ลบในเครื่องแล้ว แต่ลบบน Firebase ไม่สำเร็จ กรุณาตรวจ Rules', 'warning');
         }
       }
-      logAudit('PDPA_RIGHT_TO_ERASURE', `ลบทำลายข้อมูลส่วนบุคคลของผู้สมัคร ${removed.refCode} (${removed.fullName})`);
-      showToast('ลบข้อมูลส่วนบุคคลออกจากระบบเรียบร้อยแล้ว', 'success');
+      logAudit('PDPA_RIGHT_TO_ERASURE', `ลบทำลายข้อมูลส่วนบุคคลของผู้สมัคร ${removed.refCode} (${removed.fullName}) ออกจากระบบ Drive และ Sheets ถาวร`);
+      showToast('ลบข้อมูลส่วนบุคคลออกจากระบบ Drive และ Sheets เรียบร้อยแล้ว', 'success');
     }
 
     // =========================================================================
@@ -4264,8 +4634,8 @@
           showToast('ลบในเครื่องแล้ว แต่ลบกิจกรรมบน Firebase ไม่สำเร็จ กรุณาตรวจ Rules', 'warning');
         }
       }
-      logAudit('DELETE_EVENT', `ลบกิจกรรม "${removed.title}"`);
-      showToast('ลบกิจกรรมเรียบร้อยแล้ว', 'info');
+      logAudit('DELETE_EVENT', `ลบกิจกรรม "${removed.title}" ออกจากระบบถาวร`);
+      showToast('ลบกิจกรรมออกจากระบบเรียบร้อยแล้ว', 'info');
     }
 
     function renderAdminEventsList() {
@@ -4321,7 +4691,7 @@
         APP_STATE.editorPositions = [
           { id: generateId('pos'), name: 'แพทย์อาสา', quota: 3, docPolicy: 'required' },
           { id: generateId('pos'), name: 'พยาบาลวิชาชีพ', quota: 6, docPolicy: 'required' },
-          { id: generateId('pos'), name: 'อาสาสมัครทั่วไป', quota: 10, docPolicy: 'exempt' }
+          { id: generateId('pos'), name: 'อาสาสมัครฝ่ายศาสนกิจ / ประสานงาน', quota: 10, docPolicy: 'exempt' }
         ];
       } else if (type === 'volunteer') {
         setFieldReq('department', 'optional');
@@ -4467,8 +4837,8 @@
       if (chapFirebaseReady && chapRtdb) {
         try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/departments/${removed.id}`).remove(); } catch (_) {}
       }
-      logAudit('DELETE_DEPARTMENT', `ลบหน่วยงาน "${removed.name}"`);
-      showToast('ลบหน่วยงานเรียบร้อยแล้ว', 'info');
+      logAudit('DELETE_DEPARTMENT', `ลบหน่วยงาน "${removed.name}" ออกจากระบบถาวร`);
+      showToast('ลบหน่วยงานออกจากระบบเรียบร้อยแล้ว', 'info');
     }
     window.deleteDepartmentById = deleteDepartmentById;
 
@@ -4787,7 +5157,7 @@
     }
 
     // =========================================================================
-    // AUDIT LOGS, PDPA ERASURE & THEME CUSTOMIZER
+    // AUDIT LOGS, PDPA ERASURE (ลบหายออกจากระบบ + Drive + Sheets) & THEME
     // =========================================================================
     function renderAuditLogs() {
       const tbody = document.getElementById('admin-audit-tbody');
@@ -4849,7 +5219,7 @@
         <p><strong>กิจกรรม:</strong> ${escapeHtml(ev.title)}</p>
         <p><strong>ช่วงจัดงาน:</strong> ${escapeHtml(formatDateRange(ev.startDate, ev.endDate))}</p>
         <p class="text-rose-700 font-bold pt-1">
-          จำนวนข้อมูลที่จะถูกทำลาย: ผู้ลงทะเบียน ${regs.length} ราย, รูปถ่าย ${photoCount} รูป, เอกสารแนบ ${docCount} ไฟล์
+          ข้อมูลที่จะถูกลบออกจากระบบถาวร: ผู้ลงทะเบียน ${regs.length} ราย, รูปถ่าย ${photoCount} รูป, เอกสารแนบ ${docCount} ไฟล์
         </p>
       `;
     }
@@ -4867,20 +5237,18 @@
       });
 
       if (matches.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">ไม่พบข้อมูลผู้ลงทะเบียนที่ตรงกับคำค้นหา</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">ไม่พบข้อมูลผู้ลงทะเบียนในระบบ</p>`;
         return;
       }
 
       container.innerHTML = matches.map(r => {
         const ev = APP_STATE.events.find(e => e.id === r.eventId);
-        const isAnonymized = r.isAnonymized === true;
         return `
-          <div class="p-3 rounded-xl border ${isAnonymized ? 'border-slate-200 bg-slate-100/70' : 'border-slate-200 bg-slate-50/70'} flex items-center justify-between gap-3">
+          <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <p class="text-xs font-bold text-slate-900 truncate">${escapeHtml(r.fullName)}</p>
                 <span class="text-[11px] font-bold theme-text-primary">(${escapeHtml(r.refCode)})</span>
-                ${isAnonymized ? '<span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">ทำลายข้อมูลระบุตัวตนแล้ว</span>' : ''}
               </div>
               <p class="text-[11px] text-slate-600 truncate">${escapeHtml(ev ? ev.title : '-')} • ${escapeHtml(r.positionName)}</p>
               <p class="text-[11px] text-slate-500">โทร: ${escapeHtml(maskPhone(r.phone))} • เอกสาร ${(r.documents || []).length} ไฟล์</p>
@@ -4893,55 +5261,42 @@
       }).join('');
     }
 
-    function anonymizeRegistrationRecord(reg) {
-      reg.fullName = `[ลบข้อมูลส่วนบุคคลตาม PDPA - ${reg.refCode}]`;
-      reg.department = '-';
-      reg.phone = '-';
-      reg.email = '-';
-      reg.photoDataUrl = '';
-      reg.documents = [];
-      reg.customValues = {};
-      reg.isAnonymized = true;
-    }
-
     async function executeIndividualErasure(regId) {
       const idx = APP_STATE.registrations.findIndex(r => r.id === regId);
       if (idx === -1) return;
 
-      const mode = document.getElementById('erasure-individual-mode')?.value || 'anonymize';
       const reason = document.getElementById('erasure-individual-reason')?.value.trim() || 'เจ้าของข้อมูลร้องขอให้ลบข้อมูล (PDPA)';
       const target = APP_STATE.registrations[idx];
+      const ev = APP_STATE.events.find(e => e.id === target.eventId);
       const origName = target.fullName;
       const origRef = target.refCode;
       const origId = target.id;
 
-      if (mode === 'hard') {
-        APP_STATE.registrations.splice(idx, 1);
-        markIdAsDeleted(origId);
-        writeLocalCacheOnly();
-        if (chapFirebaseReady && chapRtdb) {
-          try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).remove(); } catch (_) {}
-        }
-        logAudit('PDPA_HARD_DELETE', `ลบรายการผู้ลงทะเบียนถาวร รหัส ${origRef} (${origName}) เหตุผล: ${reason}`);
-      } else {
-        anonymizeRegistrationRecord(target);
-        writeLocalCacheOnly();
-        if (chapFirebaseReady && chapRtdb) {
-          chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).set(target).catch(() => {});
-        }
-        logAudit('PDPA_ANONYMIZE_DATA', `ทำลายข้อมูลระบุตัวตน (Anonymize) รหัส ${origRef} (${origName}) คงสถิติยอดรวมไว้ เหตุผล: ${reason}`);
-      }
-
+      // ลบออกจากระบบและแคชทันที
+      APP_STATE.registrations.splice(idx, 1);
+      markIdAsDeleted(origId);
+      writeLocalCacheOnly();
       renderErasureSearchList();
       updateErasureEventPreview();
       renderAdminRegistrationsTable();
       renderUserEventsGrid();
-      showToast(`ดำเนินการทำลายข้อมูลของ ${origRef} เรียบร้อยแล้ว`, 'success');
+
+      deleteRegistrationFromGoogleDriveAndSheets(target, ev);
+
+      if (chapFirebaseReady && chapRtdb) {
+        try {
+          await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${origId}`).remove();
+        } catch (err) {
+          console.error('RTDB individual erasure error:', err);
+        }
+      }
+
+      logAudit('PDPA_HARD_DELETE', `ทำลายและลบข้อมูลผู้ลงทะเบียนรหัส ${origRef} (${origName}) ออกจากระบบ Drive และ Sheets ถาวร เหตุผล: ${reason}`);
+      showToast(`ลบข้อมูลของ ${origRef} ออกจากระบบ Drive และ Sheets เรียบร้อยแล้ว`, 'success');
     }
 
     async function executeBulkEventErasure() {
       const evId = document.getElementById('erasure-event-select')?.value;
-      const mode = document.getElementById('erasure-bulk-mode')?.value || 'anonymize';
       const reason = document.getElementById('erasure-reason-input')?.value.trim();
       const adminPass = document.getElementById('erasure-admin-password')?.value.trim();
 
@@ -4953,33 +5308,27 @@
       const targetRegs = APP_STATE.registrations.filter(r => r.eventId === evId);
       if (targetRegs.length === 0) { showToast('ไม่พบข้อมูลผู้ลงทะเบียนในกิจกรรมที่เลือก', 'info'); return; }
 
-      if (mode === 'hard') {
-        targetRegs.forEach(r => markIdAsDeleted(r.id));
-        APP_STATE.registrations = APP_STATE.registrations.filter(r => r.eventId !== evId);
-        writeLocalCacheOnly();
-        if (chapFirebaseReady && chapRtdb) {
-          for (const item of targetRegs) {
-            try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${item.id}`).remove(); } catch (_) {}
-          }
-        }
-        logAudit('PDPA_BULK_HARD_DELETE', `ลบข้อมูลผู้ลงทะเบียนทั้งกิจกรรม "${ev ? ev.title : evId}" ถาวร จำนวน ${targetRegs.length} รายการ (เหตุผล: ${reason})`);
-      } else {
-        targetRegs.forEach(r => {
-          anonymizeRegistrationRecord(r);
-          if (chapFirebaseReady && chapRtdb) {
-            chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${r.id}`).set(r).catch(() => {});
-          }
-        });
-        writeLocalCacheOnly();
-        logAudit('PDPA_BULK_ANONYMIZE', `ทำลายข้อมูลระบุตัวตนทั้งกิจกรรม "${ev ? ev.title : evId}" จำนวน ${targetRegs.length} รายการ โดยคงสถิติยอดรวมไว้ (เหตุผล: ${reason})`);
-      }
+      targetRegs.forEach(r => {
+        markIdAsDeleted(r.id);
+        deleteRegistrationFromGoogleDriveAndSheets(r, ev);
+      });
+      APP_STATE.registrations = APP_STATE.registrations.filter(r => r.eventId !== evId);
+      writeLocalCacheOnly();
 
       document.getElementById('erasure-admin-password').value = '';
       populateErasureEventSelect();
       renderErasureSearchList();
       renderAdminRegistrationsTable();
       renderUserEventsGrid();
-      showToast(`ทำลายข้อมูลผู้ลงทะเบียนทั้งกิจกรรมจำนวน ${targetRegs.length} รายการเรียบร้อยแล้ว`, 'success');
+
+      if (chapFirebaseReady && chapRtdb) {
+        for (const item of targetRegs) {
+          try { await chapRtdb.ref(`${RTDB_ROOT_PATH}/registrations/${item.id}`).remove(); } catch (_) {}
+        }
+      }
+
+      logAudit('PDPA_BULK_HARD_DELETE', `ทำลายและลบข้อมูลผู้ลงทะเบียนทั้งกิจกรรม "${ev ? ev.title : evId}" ออกจากระบบ Drive และ Sheets ถาวร จำนวน ${targetRegs.length} รายการ (เหตุผล: ${reason})`);
+      showToast(`ลบข้อมูลผู้ลงทะเบียนทั้งกิจกรรมจำนวน ${targetRegs.length} รายการออกจากระบบเรียบร้อยแล้ว`, 'success');
     }
 
     function applyThemeVariables(themeObj) {
