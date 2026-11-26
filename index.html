@@ -762,7 +762,7 @@
                   <h3 id="event-form-heading" class="font-heading text-base sm:text-lg font-bold text-slate-900">
                     สร้างกิจกรรมใหม่ & กำหนดฟิลด์ลงทะเบียน
                   </h3>
-                  <p class="text-xs text-slate-500">ตั้งค่าช่วงวันจัดงาน หน่วยงานที่รับผิดชอบ ตำแหน่ง และหัวข้อข้อมูลที่ต้องการเก็บ</p>
+                  <p class="text-xs text-slate-500">ตั้งค่าช่วงวันจัดงาน วันปิดรับลงทะเบียน หน่วยงาน ตำแหน่ง และหัวข้อข้อมูล</p>
                 </div>
                 <div class="flex items-center gap-2">
                   <button type="button" onclick="openTemplatePickerModal()"
@@ -803,19 +803,24 @@
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
-                      <label class="block text-xs font-bold text-slate-700 mb-1">วันที่เริ่มต้น <span class="text-rose-500">*</span></label>
+                      <label class="block text-xs font-bold text-slate-700 mb-1">วันที่เริ่มจัดงาน <span class="text-rose-500">*</span></label>
                       <input type="date" id="ev-start-date" required
                         class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm theme-focus" />
                     </div>
                     <div>
-                      <label class="block text-xs font-bold text-slate-700 mb-1">วันที่สิ้นสุด <span class="text-rose-500">*</span></label>
+                      <label class="block text-xs font-bold text-slate-700 mb-1">วันที่สิ้นสุดงาน <span class="text-rose-500">*</span></label>
                       <input type="date" id="ev-end-date" required
                         class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm theme-focus" />
                     </div>
                     <div>
-                      <label class="block text-xs font-bold text-slate-700 mb-1">สถานะการเปิดรับสมัคร (กำหนดได้ทันที)</label>
+                      <label class="block text-xs font-bold text-slate-700 mb-1">วันปิดรับลงทะเบียน</label>
+                      <input type="date" id="ev-reg-close-date"
+                        class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm theme-focus" />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-slate-700 mb-1">สถานะการรับสมัคร</label>
                       <select id="ev-status" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white theme-focus">
                         <option value="open">เปิดรับลงทะเบียน</option>
                         <option value="closed">ปิดรับลงทะเบียน</option>
@@ -961,7 +966,7 @@
             <div class="lg:col-span-5 space-y-4">
               <div class="bg-white theme-card border border-slate-200 p-5 shadow-sm">
                 <h3 class="font-heading text-base font-bold text-slate-900 mb-1">รายการกิจกรรมทั้งหมดในระบบ</h3>
-                <p class="text-xs text-slate-500 mb-4">คลิก "แก้ไข" เพื่อเปิด/ปิดรับสมัคร หรือปรับเปลี่ยนข้อมูล ฟิลด์ และตำแหน่งของงาน</p>
+                <p class="text-xs text-slate-500 mb-4">คลิก "แก้ไข" เพื่อกำหนดวันปิดรับสมัคร ปรับข้อมูล ฟิลด์ หรือตำแหน่งของงาน</p>
                 <div id="admin-events-list" class="space-y-3"></div>
               </div>
             </div>
@@ -1425,6 +1430,39 @@
   </footer>
 
   <!-- MODALS -->
+  <!-- Pop-up ถามผู้ลงทะเบียนว่าให้ตั้งกำหนดปฏิทินไหม หลังเซฟรูปใบยืนยันอัตโนมัติ -->
+  <div id="modal-ask-calendar" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-fade">
+      <div class="px-6 py-4 theme-header flex items-center justify-between">
+        <h3 class="font-heading font-bold text-base flex items-center gap-2">
+          <i class="fa-solid fa-calendar-plus" style="color: var(--theme-accent);"></i>
+          <span>ตั้งกำหนดปฏิทินกิจกรรม</span>
+        </h3>
+        <button type="button" onclick="closeCalendarPromptModal()" class="text-white/80 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-3 text-xs sm:text-sm text-slate-700">
+        <p class="font-bold text-emerald-800">
+          <i class="fa-solid fa-circle-check mr-1"></i> ระบบบันทึกใบยืนยันการลงทะเบียน (.png) ให้เรียบร้อยแล้ว
+        </p>
+        <p id="ask-calendar-event-detail" class="text-slate-600 leading-relaxed"></p>
+        <p class="font-semibold text-slate-900 pt-1">ท่านต้องการตั้งกำหนดปฏิทิน (.ics) สำหรับกิจกรรมนี้หรือไม่?</p>
+      </div>
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeCalendarPromptModal()"
+          class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-100">
+          ไว้ภายหลัง
+        </button>
+        <button type="button" onclick="confirmCalendarPromptDownload()"
+          class="px-5 py-2 rounded-xl theme-btn-primary text-xs font-bold shadow-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-calendar-check"></i>
+          <span>ตั้งกำหนดปฏิทิน (.ics)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-pdpa" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade">
       <div class="px-6 py-4 theme-header flex items-center justify-between">
@@ -1646,7 +1684,7 @@
     };
 
     const RTDB_ROOT_PATH = 'bcc_chaplain_registration_v3';
-    const DATA_VERSION = '2026-11-26-v11-ics-edit-window';
+    const DATA_VERSION = '2026-11-26-v12-reg-close-date-prompt';
 
     let chapFirebaseReady = false;
     let chapRtdb = null;
@@ -1714,7 +1752,8 @@
       cameraFacingMode: 'user',
       idleTimer: null,
       idleListenersBound: false,
-      isApplyingRemoteSnapshot: false
+      isApplyingRemoteSnapshot: false,
+      pendingCalendarRegId: null
     };
 
     const recentlyDeletedIds = new Set();
@@ -1807,6 +1846,25 @@
       if (!start && !end) return '-';
       if (start === end || !end) return `วันที่ ${formatThaiDate(start)}`;
       return `วันที่ ${formatThaiDate(start)} ถึง วันที่ ${formatThaiDate(end)}`;
+    }
+
+    function getTodayIsoDate() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function isEventRegistrationOpen(ev) {
+      if (!ev || ev.status !== 'open') return false;
+      if (ev.regCloseDate) {
+        const todayIso = getTodayIsoDate();
+        if (todayIso >= String(ev.regCloseDate)) {
+          return false;
+        }
+      }
+      return true;
     }
 
     // ตรวจสอบว่าผู้ใช้งานยังสามารถแก้ไขข้อมูลได้หรือไม่ (ต้องห่างจากวันเริ่มงานมากกว่า 14 วัน / 2 สัปดาห์)
@@ -1919,7 +1977,7 @@
     }
 
     // =========================================================================
-    // CALENDAR .ICS AUTO-DOWNLOAD ON REGISTRATION
+    // CALENDAR .ICS DOWNLOAD & POP-UP PROMPT
     // =========================================================================
     function downloadEventCalendarIcsForReg(reg, ev) {
       if (!ev) return;
@@ -1977,7 +2035,30 @@
       const ev = APP_STATE.events.find(e => e.id === reg.eventId);
       if (!ev) return;
       downloadEventCalendarIcsForReg(reg, ev);
-      showToast(`ดาวน์โหลดไฟล์ปฏิทิน (.ics) ของรหัส ${reg.refCode} แล้ว`, 'success');
+      showToast(`บันทึกไฟล์ปฏิทิน (.ics) ของรหัส ${reg.refCode} แล้ว`, 'success');
+    }
+
+    function openCalendarPromptModal(reg, ev) {
+      APP_STATE.pendingCalendarRegId = reg ? reg.id : null;
+      const detailEl = document.getElementById('ask-calendar-event-detail');
+      if (detailEl && ev) {
+        detailEl.textContent = `กิจกรรม "${ev.title}" • ${formatDateRange(ev.startDate, ev.endDate)} ณ ${ev.location}`;
+      }
+      const modal = document.getElementById('modal-ask-calendar');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeCalendarPromptModal() {
+      APP_STATE.pendingCalendarRegId = null;
+      closeModal('modal-ask-calendar');
+    }
+
+    function confirmCalendarPromptDownload() {
+      const regId = APP_STATE.pendingCalendarRegId;
+      closeCalendarPromptModal();
+      if (regId) {
+        downloadCalendarIcsByRegId(regId);
+      }
     }
 
     // =========================================================================
@@ -2289,6 +2370,7 @@
             location: 'ศูนย์ชุมชนพัฒนาคลองเตย กรุงเทพฯ',
             startDate: '2026-12-20',
             endDate: '2026-12-21',
+            regCloseDate: '2026-12-15',
             status: 'open',
             description: 'ตรวจสุขภาพเบื้องต้น มอบยาสามัญ และเยี่ยมเยียนให้กำลังใจผู้ป่วยติดเตียงในชุมชน',
             fieldReqs: { ...DEFAULT_FIELD_REQS },
@@ -2345,9 +2427,8 @@
       renderUserEventsGrid();
 
       if (APP_STATE.selectedEventId) {
-        const stillExists = APP_STATE.events.some(e => e.id === APP_STATE.selectedEventId && e.status === 'open');
-        if (stillExists) {
-          const ev = APP_STATE.events.find(e => e.id === APP_STATE.selectedEventId);
+        const ev = APP_STATE.events.find(e => e.id === APP_STATE.selectedEventId);
+        if (ev && isEventRegistrationOpen(ev)) {
           const posSelect = document.getElementById('reg-position');
           const prevPos = posSelect ? posSelect.value : '';
           const dept = getDepartmentById(ev.departmentId);
@@ -2458,7 +2539,7 @@
       const grid = document.getElementById('user-events-grid');
       const countLabel = document.getElementById('open-events-count');
       if (!grid || !countLabel) return;
-      const openEvents = APP_STATE.events.filter(ev => ev.status === 'open');
+      const openEvents = APP_STATE.events.filter(ev => isEventRegistrationOpen(ev));
       countLabel.textContent = `เปิดรับสมัครทั้งหมด ${openEvents.length} กิจกรรม`;
 
       if (openEvents.length === 0) {
@@ -2497,6 +2578,7 @@
               <div class="space-y-1 text-xs text-slate-600">
                 <p><i class="fa-regular fa-calendar-days w-4 theme-text-primary"></i> ${escapeHtml(formatDateRange(ev.startDate, ev.endDate))}</p>
                 <p><i class="fa-solid fa-location-dot w-4 theme-text-secondary"></i> ${escapeHtml(ev.location)}</p>
+                ${ev.regCloseDate ? `<p class="text-amber-700 font-medium"><i class="fa-regular fa-clock w-4"></i> ปิดรับสมัคร: ${escapeHtml(formatThaiDate(ev.regCloseDate))}</p>` : ''}
                 ${dept && dept.coordinator ? `<p><i class="fa-solid fa-user-tie w-4 text-amber-600"></i> ผู้ประสานงาน: ${escapeHtml(dept.coordinator)}</p>` : ''}
               </div>
             </div>
@@ -2511,7 +2593,11 @@
 
     function selectEventForRegistration(eventId) {
       const ev = APP_STATE.events.find(e => e.id === eventId);
-      if (!ev) return;
+      if (!ev || !isEventRegistrationOpen(ev)) {
+        showToast('กิจกรรมนี้ปิดรับลงทะเบียนแล้ว', 'warning');
+        renderUserEventsGrid();
+        return;
+      }
       APP_STATE.selectedEventId = eventId;
       renderUserEventsGrid();
 
@@ -2859,7 +2945,7 @@
           showToast('กรุณาเลือกกิจกรรมที่ต้องการลงทะเบียน', 'error');
           return;
         }
-        if (ev.status !== 'open') {
+        if (!isEventRegistrationOpen(ev)) {
           showToast('กิจกรรมนี้ปิดรับลงทะเบียนแล้ว', 'error');
           return;
         }
@@ -2978,24 +3064,22 @@
 
         resetRegistrationForm();
         setRegistrationSubmitBusy(false);
-        showToast(`ส่งข้อมูลลงทะเบียนแล้ว (${refCode}) กำลังดาวน์โหลดใบยืนยันและปฏิทิน .ics`, 'success');
+        showToast(`ส่งข้อมูลลงทะเบียนแล้ว (${refCode})`, 'success');
 
+        // เซฟรูปใบยืนยัน (.png) อัตโนมัติก่อน แล้วขึ้น Pop-up ถามว่าจะตั้งกำหนดปฏิทินไหม
         try {
           downloadRegistrationReceiptImage(newReg, ev);
         } catch (receiptErr) {
           console.warn('Receipt image warning:', receiptErr);
         }
 
-        // มาร์คกำหนดปฏิทินเป็นไฟล์ .ics อัตโนมัติเมื่อลงทะเบียนเสร็จแล้ว
-        try {
-          downloadEventCalendarIcsForReg(newReg, ev);
-        } catch (icsErr) {
-          console.warn('ICS calendar warning:', icsErr);
-        }
-
         document.getElementById('status-search-input').value = refCode;
         switchView('status');
         renderStatusSearchResults(refCode);
+
+        setTimeout(() => {
+          openCalendarPromptModal(newReg, ev);
+        }, 350);
 
         setTimeout(() => {
           logAudit('NEW_REGISTRATION', `ลงทะเบียนใหม่รหัส ${refCode} (${fullName}) กิจกรรม: ${ev.title}`);
@@ -3337,7 +3421,7 @@
 
             <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
               <span class="text-[11px] ${allowEdit ? 'text-emerald-700 font-semibold' : 'text-slate-400'}">
-                ${allowEdit ? 'สามารถแก้ไขข้อมูลได้ (ล่วงหน้าเกิน 2 สัปดาห์ก่อนวันงาน)' : 'ปิดการแก้ไขข้อมูลแล้ว (ภายใน 2 สัปดาห์ก่อนวันงาน)'}
+                ${allowEdit ? 'แก้ไขข้อมูลได้ (ล่วงหน้าเกิน 2 สัปดาห์ก่อนวันงาน)' : 'ปิดการแก้ไขข้อมูลแล้ว (ภายใน 2 สัปดาห์ก่อนวันงาน)'}
               </span>
               <div class="flex items-center gap-2 flex-wrap">
                 ${allowEdit ? `
@@ -3347,18 +3431,18 @@
                     <span>แก้ไขข้อมูล</span>
                   </button>
                 ` : ''}
-                ${ev ? `
-                  <button type="button" onclick="downloadCalendarIcsByRegId('${escapeHtml(r.id)}')"
-                    class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5">
-                    <i class="fa-solid fa-calendar-plus"></i>
-                    <span>ไฟล์ปฏิทิน (.ics)</span>
-                  </button>
-                ` : ''}
                 <button type="button" onclick="downloadReceiptById('${escapeHtml(r.id)}')"
                   class="px-4 py-2 rounded-xl theme-btn-secondary text-xs font-bold flex items-center gap-1.5 shadow-sm">
                   <i class="fa-solid fa-download"></i>
                   <span>บันทึกใบยืนยัน (.png)</span>
                 </button>
+                ${ev ? `
+                  <button type="button" onclick="downloadCalendarIcsByRegId('${escapeHtml(r.id)}')"
+                    class="px-3.5 py-2 rounded-xl theme-btn-primary text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                    <span>บันทึกปฏิทิน</span>
+                  </button>
+                ` : ''}
               </div>
             </div>
           </div>`;
@@ -4052,6 +4136,7 @@
       const location = document.getElementById('ev-location').value.trim();
       const startDate = document.getElementById('ev-start-date').value;
       const endDate = document.getElementById('ev-end-date').value;
+      const regCloseDate = document.getElementById('ev-reg-close-date').value;
       const status = document.getElementById('ev-status').value;
       const description = document.getElementById('ev-description').value.trim();
       const docInstructions = document.getElementById('ev-doc-instructions').value.trim();
@@ -4061,7 +4146,7 @@
         return;
       }
       if (endDate < startDate) {
-        showToast('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น', 'error');
+        showToast('วันที่สิ้นสุดงานต้องไม่ก่อนวันที่เริ่มจัดงาน', 'error');
         return;
       }
 
@@ -4085,6 +4170,7 @@
         location,
         startDate,
         endDate,
+        regCloseDate: regCloseDate || '',
         status,
         description,
         fieldReqs: { ...DEFAULT_FIELD_REQS, ...APP_STATE.editorFieldReqs },
@@ -4096,7 +4182,7 @@
       if (editId) {
         const idx = APP_STATE.events.findIndex(e => e.id === editId);
         if (idx !== -1) APP_STATE.events[idx] = payload;
-        logAudit('UPDATE_EVENT', `แก้ไขกิจกรรม "${title}" (สถานะ: ${status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'})`);
+        logAudit('UPDATE_EVENT', `แก้ไขกิจกรรม "${title}" (ปิดรับสมัคร: ${regCloseDate ? formatThaiDate(regCloseDate) : 'ตามสถานะ'})`);
         showToast('อัปเดตข้อมูลกิจกรรมเรียบร้อยแล้ว', 'success');
       } else {
         APP_STATE.events.unshift(payload);
@@ -4126,6 +4212,7 @@
       document.getElementById('ev-location').value = ev.location;
       document.getElementById('ev-start-date').value = ev.startDate;
       document.getElementById('ev-end-date').value = ev.endDate;
+      document.getElementById('ev-reg-close-date').value = ev.regCloseDate || '';
       document.getElementById('ev-status').value = ev.status;
       document.getElementById('ev-description').value = ev.description || '';
       document.getElementById('ev-doc-instructions').value = ev.docInstructions || '';
@@ -4192,15 +4279,19 @@
       list.innerHTML = APP_STATE.events.map(ev => {
         const dept = getDepartmentById(ev.departmentId);
         const cfCount = (ev.customFields || []).length;
+        const isOpen = isEventRegistrationOpen(ev);
+        const closedByDate = ev.status === 'open' && ev.regCloseDate && getTodayIsoDate() >= String(ev.regCloseDate);
+
         return `
           <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
             <div class="flex items-start justify-between gap-2">
               <h4 class="font-heading font-bold text-sm text-slate-900 leading-snug">${escapeHtml(ev.title)}</h4>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${ev.status === 'open' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}">
-                ${ev.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${isOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}">
+                ${isOpen ? 'เปิดรับสมัคร' : (closedByDate ? 'ปิดรับตามวันกำหนด' : 'ปิดรับสมัคร')}
               </span>
             </div>
             <p class="text-xs text-slate-600">${escapeHtml(formatDateRange(ev.startDate, ev.endDate))}</p>
+            ${ev.regCloseDate ? `<p class="text-[11px] text-amber-700 font-medium">วันปิดรับลงทะเบียน: ${escapeHtml(formatThaiDate(ev.regCloseDate))}</p>` : ''}
             <p class="text-[11px] text-slate-500">หน่วยงาน: ${escapeHtml(dept ? dept.name : '-')} • ฟิลด์เพิ่มเติม: ${cfCount} หัวข้อ</p>
             <div class="pt-2 flex items-center justify-end gap-2">
               <button type="button" onclick="editEventItem('${escapeHtml(ev.id)}')"
